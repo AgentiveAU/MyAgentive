@@ -61,6 +61,10 @@ function formatActivity(event: ActivityEvent): string {
 // Send message to monitoring group
 async function flushQueue(): Promise<void> {
   if (messageQueue.length === 0) return;
+  if (!config.telegramMonitoringGroupId) {
+    messageQueue.length = 0; // Clear queue if no monitoring group
+    return;
+  }
 
   const now = Date.now();
   const timeSinceLastFlush = now - lastFlushTime;
@@ -123,6 +127,11 @@ export async function logActivity(event: ActivityEvent): Promise<void> {
 
 // Set up activity listener
 export function setupActivityMonitoring(): void {
+  if (!config.telegramMonitoringGroupId) {
+    console.log("Activity monitoring disabled (no monitoring group configured)");
+    return;
+  }
+
   sessionManager.on("activity", (event: ActivityEvent) => {
     logActivity(event).catch(console.error);
   });
@@ -132,17 +141,19 @@ export function setupActivityMonitoring(): void {
 
 // Send startup message
 export async function sendStartupMessage(): Promise<void> {
+  if (!config.telegramMonitoringGroupId) return;
   const timestamp = new Date().toLocaleString();
-  await sendToMonitoringGroup(`🚀 MyAgentive1 started at ${timestamp}`);
+  await sendToMonitoringGroup(`🚀 MyAgentive started at ${timestamp}`);
 }
 
 // Send shutdown message
 export async function sendShutdownMessage(): Promise<void> {
+  if (!config.telegramMonitoringGroupId) return;
   const timestamp = new Date().toLocaleString();
   // Flush immediately for shutdown
   await monitorBot.api.sendMessage(
     config.telegramMonitoringGroupId,
-    `🛑 MyAgentive1 stopped at ${timestamp}`,
+    `🛑 MyAgentive stopped at ${timestamp}`,
     { disable_notification: true }
   );
 }

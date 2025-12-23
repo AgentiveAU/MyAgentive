@@ -1,6 +1,6 @@
 {
   "name": "myagentive",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Claude Agent SDK multi-interface application (Web, Telegram, CLI)",
   "scripts": {

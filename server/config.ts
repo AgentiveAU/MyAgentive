@@ -25,7 +25,9 @@ export const config = {
   // Telegram
   telegramBotToken: required("TELEGRAM_BOT_TOKEN"),
   telegramUserId: parseInt(required("TELEGRAM_USER_ID")),
-  telegramMonitoringGroupId: parseInt(required("TELEGRAM_MONITORING_GROUP_ID")),
+  telegramMonitoringGroupId: process.env.TELEGRAM_MONITORING_GROUP_ID
+    ? parseInt(process.env.TELEGRAM_MONITORING_GROUP_ID)
+    : null,
   // Comma-separated list of group/channel IDs where bot should process messages
   // Bot only responds when @mentioned in these groups. Empty = no groups allowed.
   telegramAllowedGroups: optional("TELEGRAM_ALLOWED_GROUPS", "")
