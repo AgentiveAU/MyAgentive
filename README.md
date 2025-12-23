@@ -87,13 +87,16 @@ This starts:
 
 ```bash
 # Start as background service
-myagentive --daemon
+myagentivectl start
 
 # Stop the service
-myagentive stop
+myagentivectl stop
 
 # View logs
-myagentive logs
+myagentivectl logs
+
+# Check status
+myagentivectl status
 ```
 
 ## Updating
@@ -102,11 +105,11 @@ myagentive logs
 # Homebrew
 brew upgrade myagentive
 
-# Install script
-myagentive update
+# Install script (re-run to update)
+curl -fsSL https://myagentive.agentive.is/install | bash
 ```
 
-Your config and data are preserved in `~/.mymyagentive`.
+Your config and data are preserved in `~/.myagentive/`.
 
 ## Telegram Commands
 
