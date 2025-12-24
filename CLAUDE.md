@@ -104,3 +104,7 @@ Optional:
 
 - Use Australian English spelling
 - Brand name is "MyAgentive" (product by Agentive)
+
+## Agent Identity
+
+The MyAgentive agent must identify as "MyAgentive" built by Agentive, NOT as "Claude" or "Anthropic". The system prompt in `server/core/ai-client.ts` establishes its identity

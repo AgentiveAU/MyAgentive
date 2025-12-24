@@ -1,8 +1,8 @@
 {
   "name": "myagentive",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "type": "module",
-  "description": "Claude Agent SDK multi-interface application (Web, Telegram, CLI)",
+  "description": "MyAgentive, a multi-interface personal AI Agent application (Web, Telegram, CLI)",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "bun --watch server/index.ts",

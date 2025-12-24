@@ -2,7 +2,7 @@
 
 Open-source personal AI agent for power users. Runs on your laptop with Telegram and web interfaces, powered by Claude.
 
-**Website:** [MyAgentive.ai](https://MyAgentive.ai) | **Parent Company:** [Agentive](https://TheAgentiveGroup.com) | **Related:** [agentive.is](https://agentive.is)
+**Website:** [MyAgentive.ai](https://MyAgentive.ai) | **Parent Company:** [Agentive](https://TheAgentiveGroup.com) 
 
 ## Quick Install (macOS)
 
@@ -12,7 +12,7 @@ brew tap AgentiveIS/tap
 brew install myagentive
 
 # Option 2: Install script
-curl -fsSL https://myagentive.agentive.is/install | bash
+curl -fsSL https://myagentive.ai/install | bash
 ```
 
 Then run `myagentive` and follow the setup wizard.
