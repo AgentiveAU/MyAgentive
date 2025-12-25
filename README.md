@@ -2,9 +2,11 @@
 
 Open-source personal AI agent for power users. Runs on your laptop with Telegram and web interfaces, powered by Claude.
 
-**Website:** [MyAgentive.ai](https://MyAgentive.ai) | **Parent Company:** [Agentive](https://TheAgentiveGroup.com) 
+**Platforms:** macOS and Linux. Windows users can install via WSL (Windows Subsystem for Linux).
 
-## Quick Install (macOS)
+**Website:** [MyAgentive.ai](https://MyAgentive.ai) | **Parent Company:** [Agentive](https://TheAgentiveGroup.com)
+
+## Quick Install
 
 ```bash
 # Option 1: Homebrew (recommended)

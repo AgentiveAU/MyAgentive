@@ -76,9 +76,14 @@ cd "$RELEASE_DIR"
 # Remove old archives
 rm -f MyAgentive-*.tar.gz
 
-# Create versioned archives
-tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
-tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+# Strip macOS extended attributes to avoid tar warnings on Linux/WSL
+echo "Stripping macOS extended attributes..."
+xattr -cr MyAgentive 2>/dev/null || true
+xattr -cr MyAgentive-linux 2>/dev/null || true
+
+# Create versioned archives (COPYFILE_DISABLE prevents ._* AppleDouble files)
+COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
+COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
 
 echo ""
 echo "Release packages created:"
