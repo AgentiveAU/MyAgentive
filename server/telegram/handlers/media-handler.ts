@@ -131,9 +131,10 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     );
 
     // Build message for the agent about the file
-    const isAudioFile = fileType === "voice" || fileType === "audio";
-    const transcriptionInstruction = isAudioFile
-      ? " Use the deepgram-transcription skill to transcribe this audio file, then respond to the user based on the transcription."
+    // Only suggest transcription for voice messages (user speaking), not audio files (music, etc.)
+    // Don't force a specific tool - let the agent decide (Deepgram, Whisper, etc.)
+    const transcriptionInstruction = fileType === "voice"
+      ? " This is a voice message from the user. Please transcribe it and respond to what they said."
       : "";
     const fileMessage = `[System: User uploaded a ${fileType} file. Path: ${storedPath}${
       originalFilename ? `, Original name: ${originalFilename}` : ""
