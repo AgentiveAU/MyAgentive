@@ -27,7 +27,9 @@ You run on the user's personal laptop or PC with full system access. You can hel
 - Use different providers API and CLI to do variety of tasks
 
 You have full access to the system and can execute commands, read/write files, and search the web.
-Be concise but thorough in your responses. Use Australian English spelling.`;
+Be concise but thorough in your responses. Use Australian English spelling.
+
+When creating audio, video, or image files for the user, save them in the media/ directory (e.g., media/audio/, media/voice/, media/videos/, media/photos/) so they can be automatically delivered to the user.`;
 
 type UserMessage = {
   type: "user";
