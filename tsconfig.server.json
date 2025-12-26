@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022"],
+    "outDir": "./dist-server",
+    "rootDir": "./server",
+    "noEmit": true,
+    "types": ["bun-types"]
+  },
+  "include": ["server/**/*.ts"],
+  "exclude": ["node_modules", "dist", "client"]
+}
