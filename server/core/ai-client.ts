@@ -85,6 +85,19 @@ class MessageQueue {
   }
 }
 
+// Find Claude Code in nvm installations
+function findNvmClaudePaths(): string[] {
+  const fs = require("fs");
+  const nvmDir = `${process.env.HOME}/.nvm/versions/node`;
+  if (!fs.existsSync(nvmDir)) return [];
+  try {
+    const versions = fs.readdirSync(nvmDir);
+    return versions.map((v: string) => `${nvmDir}/${v}/bin/claude`);
+  } catch {
+    return [];
+  }
+}
+
 export class AgentSession {
   private queue = new MessageQueue();
   private outputIterator: AsyncIterator<any> | null = null;
@@ -100,6 +113,8 @@ export class AgentSession {
       "/usr/local/bin/claude",
       `${process.env.HOME}/.local/bin/claude`,
       `${process.env.HOME}/.claude/local/claude`,
+      // nvm installations (common on Linux when using npm install -g)
+      ...findNvmClaudePaths(),
     ].filter(Boolean) as string[];
 
     const fs = require("fs");

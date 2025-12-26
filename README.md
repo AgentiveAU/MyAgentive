@@ -258,9 +258,11 @@ Post content to LinkedIn and Twitter/X with text, images, and videos.
 
 #### LinkedIn Setup
 
+**Important:** Creating a LinkedIn app requires a LinkedIn Company Page (not a personal profile). If you don't have one, create a Company Page first at [linkedin.com/company/setup](https://www.linkedin.com/company/setup/).
+
 1. Go to [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps)
 2. Click **Create app**
-3. Fill in app details and link to a LinkedIn Page
+3. Fill in app details and link to your LinkedIn Company Page
 4. Go to **Products** tab and request:
    - "Share on LinkedIn"
    - "Sign In with LinkedIn using OpenID Connect"

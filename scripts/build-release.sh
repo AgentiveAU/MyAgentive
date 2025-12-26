@@ -37,17 +37,18 @@ mkdir -p "$RELEASE_DIR/MyAgentive/dist"
 cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
 
-# Copy skills
+# Copy skills to .claude/skills (SDK expects this location)
 echo "Copying skills..."
-rm -rf "$RELEASE_DIR/MyAgentive/skills"
-cp -r .claude/skills "$RELEASE_DIR/MyAgentive/skills"
+rm -rf "$RELEASE_DIR/MyAgentive/.claude/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive/.claude"
+cp -r .claude/skills "$RELEASE_DIR/MyAgentive/.claude/skills"
 # Remove .DS_Store, venv, and other junk
-find "$RELEASE_DIR/MyAgentive/skills" -name '.DS_Store' -delete
-find "$RELEASE_DIR/MyAgentive/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/skills" -name '*.pyc' -delete
-find "$RELEASE_DIR/MyAgentive/skills" -name '.env' -delete
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentivectl" "$RELEASE_DIR/MyAgentive/myagentive"
 
@@ -57,15 +58,16 @@ mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
 cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
 
-# Copy skills for Linux
-rm -rf "$RELEASE_DIR/MyAgentive-linux/skills"
-cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux/skills"
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.DS_Store' -delete
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name '*.pyc' -delete
-find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.env' -delete
+# Copy skills for Linux to .claude/skills (SDK expects this location)
+rm -rf "$RELEASE_DIR/MyAgentive-linux/.claude/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux/.claude"
+cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux/.claude/skills"
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
 

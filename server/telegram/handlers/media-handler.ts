@@ -130,10 +130,14 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
       `✅ ${fileType} saved!\n\nFile: ${displayName}\nSize: ${sizeKB} KB\nPath: ${storedPath}\n\nThe agent can access this file.`
     );
 
-    // Optionally, send a message to the agent about the file
+    // Build message for the agent about the file
+    const isAudioFile = fileType === "voice" || fileType === "audio";
+    const transcriptionInstruction = isAudioFile
+      ? " Use the deepgram-transcription skill to transcribe this audio file, then respond to the user based on the transcription."
+      : "";
     const fileMessage = `[System: User uploaded a ${fileType} file. Path: ${storedPath}${
       originalFilename ? `, Original name: ${originalFilename}` : ""
-    }${message.caption ? `, Caption: ${message.caption}` : ""}]`;
+    }${message.caption ? `, Caption: ${message.caption}` : ""}]${transcriptionInstruction}`;
 
     const chatId = ctx.chat?.id;
     if (chatId) {
