@@ -65,9 +65,11 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   const token = createAuthToken("web");
+  // Only use secure cookies when accessed via HTTPS
+  const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
   res.cookie("session", token, {
     httpOnly: true,
-    secure: config.isProd,
+    secure: isHttps,
     sameSite: "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
