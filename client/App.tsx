@@ -2,8 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { ChatWindow } from "./components/ChatWindow";
 import { LoginForm } from "./components/LoginForm";
-import { Sidebar } from "./components/Sidebar";
+import { AppShell } from "./components/AppShell";
+import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { useAuth } from "./hooks/useAuth";
+import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
 
 interface Session {
   id: string;
@@ -40,6 +43,7 @@ export default function App() {
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(() => {
     // Load token from localStorage on initial mount
     return localStorage.getItem("sessionToken");
@@ -133,6 +137,7 @@ export default function App() {
       case "error":
         console.error("Server error:", message.error);
         setIsLoading(false);
+        toast.error(message.error || "An error occurred");
         break;
     }
   }, []);
@@ -161,6 +166,7 @@ export default function App() {
   // Fetch all sessions (active and archived)
   const fetchSessions = async () => {
     try {
+      setSessionsLoading(true);
       const [activeRes, archivedRes] = await Promise.all([
         fetch(`${API_BASE}/sessions`, { credentials: "include" }),
         fetch(`${API_BASE}/sessions?archived=1`, { credentials: "include" }),
@@ -173,23 +179,35 @@ export default function App() {
       }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
+    } finally {
+      setSessionsLoading(false);
     }
   };
 
   // Create new session
   const createSession = async (name?: string) => {
     try {
+      // Generate a unique name if not provided
+      const sessionName = name || `session-${Date.now()}`;
       const res = await fetch(`${API_BASE}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: sessionName }),
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `HTTP ${res.status}`);
+      }
+
       const session = await res.json();
       await fetchSessions();
       switchSession(session.name);
+      toast.success("Session created");
     } catch (error) {
       console.error("Failed to create session:", error);
+      toast.error("Failed to create session");
     }
   };
 
@@ -205,8 +223,10 @@ export default function App() {
         setCurrentSessionName(null);
         setMessages([]);
       }
+      toast.success("Session deleted");
     } catch (error) {
       console.error("Failed to delete session:", error);
+      toast.error("Failed to delete session");
     }
   };
 
@@ -230,8 +250,10 @@ export default function App() {
           setMessages([]);
         }
       }
+      toast.success("Session archived");
     } catch (error) {
       console.error("Failed to archive session:", error);
+      toast.error("Failed to archive session");
     }
   };
 
@@ -245,8 +267,27 @@ export default function App() {
         body: JSON.stringify({ archived: false }),
       });
       await fetchSessions();
+      toast.success("Session restored");
     } catch (error) {
       console.error("Failed to unarchive session:", error);
+      toast.error("Failed to restore session");
+    }
+  };
+
+  // Rename session
+  const renameSession = async (name: string, newTitle: string) => {
+    try {
+      await fetch(`${API_BASE}/sessions/${name}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: newTitle }),
+      });
+      await fetchSessions();
+      toast.success("Session renamed");
+    } catch (error) {
+      console.error("Failed to rename session:", error);
+      toast.error("Failed to rename session");
     }
   };
 
@@ -301,6 +342,24 @@ export default function App() {
     }
   }, [isAuthenticated, sessions, currentSessionName, isConnected]);
 
+  // Connection status notifications
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    if (readyState === ReadyState.OPEN) {
+      toast.success("Connected to server");
+    } else if (readyState === ReadyState.CLOSED) {
+      toast.error("Disconnected from server");
+    } else if (readyState === ReadyState.CONNECTING) {
+      toast.loading("Connecting...", { id: "connecting" });
+    }
+
+    // Dismiss loading toast when connected or failed
+    if (readyState === ReadyState.OPEN || readyState === ReadyState.CLOSED) {
+      toast.dismiss("connecting");
+    }
+  }, [readyState, isAuthenticated]);
+
   // Show loading while checking auth
   if (authLoading) {
     return (
@@ -318,30 +377,32 @@ export default function App() {
   const selectedChatId = sessions.find((s) => s.name === currentSessionName)?.id || null;
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-64 shrink-0">
-        <Sidebar
-          sessions={sessions}
-          archivedSessions={archivedSessions}
-          currentSessionName={currentSessionName}
-          onSwitchSession={switchSession}
-          onNewSession={createSession}
-          onArchiveSession={archiveSession}
-          onUnarchiveSession={unarchiveSession}
-          onDeleteSession={deleteSession}
-          onLogout={handleLogout}
-        />
-      </div>
-
-      {/* Main chat area */}
-      <ChatWindow
-        chatId={selectedChatId}
-        messages={messages}
+    <>
+      <AppShell
+        sessions={sessions}
+        archivedSessions={archivedSessions}
+        currentSessionName={currentSessionName}
         isConnected={isConnected}
-        isLoading={isLoading}
-        onSendMessage={handleSendMessage}
-      />
-    </div>
+        sessionsLoading={sessionsLoading}
+        onSwitchSession={switchSession}
+        onNewSession={createSession}
+        onRenameSession={renameSession}
+        onArchiveSession={archiveSession}
+        onUnarchiveSession={unarchiveSession}
+        onDeleteSession={deleteSession}
+        onLogout={handleLogout}
+      >
+        <ChatWindow
+          chatId={selectedChatId}
+          sessionName={currentSessionName}
+          messages={messages}
+          isConnected={isConnected}
+          isLoading={isLoading}
+          onSendMessage={handleSendMessage}
+        />
+      </AppShell>
+      <Toaster position="bottom-right" />
+      <KeyboardShortcuts />
+    </>
   );
 }

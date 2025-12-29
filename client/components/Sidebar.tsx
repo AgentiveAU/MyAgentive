@@ -1,4 +1,19 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import {
+  MessageSquare,
+  Archive,
+  Plus,
+  LogOut,
+  Search,
+  PanelLeftClose,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { ScrollArea } from "./ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import { SessionItem } from "./SessionItem";
+import { SessionListSkeleton } from "./SessionListSkeleton";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface Session {
   id: string;
@@ -13,31 +28,37 @@ interface SidebarProps {
   sessions: Session[];
   archivedSessions: Session[];
   currentSessionName: string | null;
+  sessionsLoading?: boolean;
   onSwitchSession: (name: string) => void;
   onNewSession: (name?: string) => void;
+  onRenameSession: (name: string, newTitle: string) => void;
   onArchiveSession: (name: string) => void;
   onUnarchiveSession: (name: string) => void;
   onDeleteSession: (name: string) => void;
   onLogout: () => void;
+  // Desktop collapse control
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
-
-type TabType = "active" | "archived";
 
 export function Sidebar({
   sessions,
   archivedSessions,
   currentSessionName,
+  sessionsLoading = false,
   onSwitchSession,
   onNewSession,
+  onRenameSession,
   onArchiveSession,
   onUnarchiveSession,
   onDeleteSession,
   onLogout,
+  isCollapsed,
+  onToggleCollapse,
 }: SidebarProps) {
-  const [activeTab, setActiveTab] = useState<TabType>("active");
   const [showNewInput, setShowNewInput] = useState(false);
   const [newSessionName, setNewSessionName] = useState("");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleCreateSession = () => {
     if (newSessionName.trim()) {
@@ -50,168 +71,219 @@ export function Sidebar({
     setShowNewInput(false);
   };
 
-  const displayedSessions = activeTab === "active" ? sessions : archivedSessions;
+  // Filter sessions based on search query
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    const query = searchQuery.toLowerCase();
+    return sessions.filter(
+      (session) =>
+        session.name.toLowerCase().includes(query) ||
+        session.title?.toLowerCase().includes(query)
+    );
+  }, [sessions, searchQuery]);
+
+  const filteredArchivedSessions = useMemo(() => {
+    if (!searchQuery.trim()) return archivedSessions;
+    const query = searchQuery.toLowerCase();
+    return archivedSessions.filter(
+      (session) =>
+        session.name.toLowerCase().includes(query) ||
+        session.title?.toLowerCase().includes(query)
+    );
+  }, [archivedSessions, searchQuery]);
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-white">
-      {/* Header */}
-      <div className="p-3 border-b border-gray-700 flex items-center justify-between">
-        <span className="text-sm font-medium">MyAgentive</span>
-        <button
-          onClick={onLogout}
-          className="text-xs text-gray-400 hover:text-white transition-colors"
-        >
-          Logout
-        </button>
+    <div className="flex flex-col h-full w-full">
+      {/* Header with New Session button */}
+      <div className="p-3 border-b flex items-center justify-between shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {/* Collapse button - desktop only */}
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 hidden md:flex"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          )}
+          <span className="text-sm font-semibold truncate">MyAgentive</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowNewInput(true)}
+            className="h-8 w-8"
+            title="New Session"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onLogout}
+            className="h-8 w-8"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* New Session Button */}
-      {activeTab === "active" && (
-        <div className="p-3 border-b border-gray-700">
-          {showNewInput ? (
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-                placeholder="Session name (optional)"
-                className="flex-1 px-3 py-2 text-sm bg-gray-800 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateSession();
-                  if (e.key === "Escape") {
-                    setShowNewInput(false);
-                    setNewSessionName("");
-                  }
-                }}
-                autoFocus
-              />
-              <button
-                onClick={handleCreateSession}
-                className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Create
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowNewInput(true)}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <span>+</span>
-              <span>New Session</span>
-            </button>
-          )}
+      {/* New Session Input - shown when creating */}
+      {showNewInput && (
+        <div className="p-3 border-b shrink-0">
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={newSessionName}
+              onChange={(e) => setNewSessionName(e.target.value)}
+              placeholder="Session name (optional)"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateSession();
+                if (e.key === "Escape") {
+                  setShowNewInput(false);
+                  setNewSessionName("");
+                }
+              }}
+              autoFocus
+              className="flex-1"
+            />
+            <Button onClick={handleCreateSession} size="sm">
+              Create
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-700">
-        <button
-          onClick={() => setActiveTab("active")}
-          className={`flex-1 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${
-            activeTab === "active"
-              ? "text-white border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-          }`}
-        >
-          Active
-        </button>
-        <button
-          onClick={() => setActiveTab("archived")}
-          className={`flex-1 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${
-            activeTab === "archived"
-              ? "text-white border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-          }`}
-        >
-          Archived {archivedSessions.length > 0 && `(${archivedSessions.length})`}
-        </button>
-      </div>
+      {/* Tabs - takes all remaining space */}
+      <Tabs defaultValue="active" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="shrink-0 px-2 pt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="active" className="gap-1.5 text-xs">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Active
+              {sessions.length > 0 && (
+                <span className="text-[10px] opacity-70">({sessions.length})</span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="gap-1.5 text-xs">
+              <Archive className="h-3.5 w-3.5" />
+              Archived
+              {archivedSessions.length > 0 && (
+                <span className="text-[10px] opacity-70">({archivedSessions.length})</span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      {/* Session List */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {displayedSessions.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            <p className="text-sm">
-              {activeTab === "active" ? "No active sessions" : "No archived sessions"}
-            </p>
-            {activeTab === "active" && (
-              <p className="text-xs mt-1">Click "New Session" to start</p>
-            )}
+        {/* Search input */}
+        <div className="px-3 py-2 shrink-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              className="pl-8 h-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-        ) : (
-          <div className="space-y-1">
-            {displayedSessions.map((session) => (
-              <div
-                key={session.id}
-                className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                  currentSessionName === session.name
-                    ? "bg-blue-600"
-                    : "hover:bg-gray-800"
-                }`}
-                onClick={() => onSwitchSession(session.name)}
-              >
-                <span className="text-gray-400 shrink-0">
-                  {activeTab === "active" ? "💬" : "📦"}
-                </span>
-                <span className="flex-1 truncate text-sm">
-                  {session.title || session.name}
-                </span>
+        </div>
 
-                {/* Action buttons */}
-                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
-                  {activeTab === "active" ? (
-                    /* Archive button for active sessions */
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onArchiveSession(session.name);
-                      }}
-                      className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
-                      title="Archive"
-                    >
-                      📥
-                    </button>
-                  ) : (
-                    /* Restore and Delete buttons for archived sessions */
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUnarchiveSession(session.name);
-                        }}
-                        className="p-1 hover:bg-gray-600 rounded text-gray-400 hover:text-white transition-colors"
-                        title="Restore"
+        {/* Active Sessions Tab */}
+        <TabsContent value="active" className="flex-1 m-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            {sessionsLoading ? (
+              <SessionListSkeleton />
+            ) : (
+              <div className="p-2 space-y-1">
+                {filteredSessions.length === 0 ? (
+                  <div className="py-8 px-4 text-center text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">
+                      {searchQuery
+                        ? "No sessions match your search"
+                        : "No active sessions"}
+                    </p>
+                    {!searchQuery && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setShowNewInput(true)}
                       >
-                        ↩
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm("Delete this session permanently?")) {
-                            onDeleteSession(session.name);
-                          }
-                        }}
-                        className="p-1 hover:bg-red-600 rounded text-gray-400 hover:text-white transition-colors"
-                        title="Delete permanently"
-                      >
-                        ✕
-                      </button>
-                    </>
-                  )}
-                </div>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Create your first session
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  filteredSessions.map((session) => (
+                    <SessionItem
+                      key={session.id}
+                      session={session}
+                      isActive={currentSessionName === session.name}
+                      onClick={() => onSwitchSession(session.name)}
+                      onRename={onRenameSession}
+                      onArchive={onArchiveSession}
+                      onDelete={onDeleteSession}
+                    />
+                  ))
+                )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            )}
+          </ScrollArea>
+        </TabsContent>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-gray-700">
-        <p className="text-xs text-gray-500 text-center">
-          <a href="https://TheAgentiveGroup.com" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">Agentive</a>
-          {" "}
-          <a href="https://MyAgentive.ai" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300 transition-colors">MyAgentive</a>
+        {/* Archived Sessions Tab */}
+        <TabsContent value="archived" className="flex-1 m-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            {sessionsLoading ? (
+              <SessionListSkeleton />
+            ) : (
+              <div className="p-2 space-y-1">
+                {filteredArchivedSessions.length === 0 ? (
+                  <div className="py-8 px-4 text-center text-muted-foreground">
+                    <Archive className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">
+                      {searchQuery
+                        ? "No archived sessions match your search"
+                        : "No archived sessions"}
+                    </p>
+                  </div>
+                ) : (
+                  filteredArchivedSessions.map((session) => (
+                    <SessionItem
+                      key={session.id}
+                      session={session}
+                      isArchived={true}
+                      onClick={() => onSwitchSession(session.name)}
+                      onUnarchive={onUnarchiveSession}
+                      onDelete={onDeleteSession}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+
+      {/* Minimal Footer */}
+      <div className="p-2 border-t shrink-0">
+        <p className="text-[10px] text-muted-foreground text-center opacity-70">
+          <a
+            href="https://MyAgentive.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:opacity-100 transition-opacity"
+          >
+            MyAgentive.ai
+          </a>
         </p>
       </div>
     </div>

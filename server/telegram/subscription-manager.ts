@@ -28,9 +28,9 @@ interface TelegramSubscription {
 
 class TelegramSubscriptionManager {
   private subscriptions: Map<number, TelegramSubscription> = new Map();
-  private bot: Bot | null = null;
+  private bot: Bot<any> | null = null;
 
-  setBot(bot: Bot) {
+  setBot(bot: Bot<any>) {
     this.bot = bot;
   }
 
