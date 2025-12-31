@@ -33,6 +33,9 @@ bun build --compile --target=bun-linux-x64 server/index.ts --outfile "$RELEASE_D
 # Prepare macOS package
 echo "Preparing macOS package..."
 cp dist/myagentive "$RELEASE_DIR/MyAgentive/"
+# Copy and configure install script from template
+cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive/install.sh"
+sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive/install.sh" && rm -f "$RELEASE_DIR/MyAgentive/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive/dist"
 cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
@@ -54,6 +57,9 @@ chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentiv
 
 # Prepare Linux package
 echo "Preparing Linux package..."
+# Copy and configure install script from template
+cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive-linux/install.sh"
+sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux/install.sh" && rm -f "$RELEASE_DIR/MyAgentive-linux/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
 cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
