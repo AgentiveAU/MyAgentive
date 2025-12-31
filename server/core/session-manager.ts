@@ -334,6 +334,15 @@ class SessionManager extends EventEmitter {
     return this.clientSessions.get(clientId) || null;
   }
 
+  renameSession(name: string, newTitle: string): boolean {
+    const dbSession = sessionRepo.getByName(name);
+    if (!dbSession) {
+      return false;
+    }
+    sessionRepo.updateTitle(dbSession.id, newTitle);
+    return true;
+  }
+
   deleteSession(name: string): boolean {
     const session = this.sessions.get(name);
     if (session) {

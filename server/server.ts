@@ -134,26 +134,41 @@ app.delete("/api/sessions/:name", authMiddleware, (req, res) => {
 });
 
 app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
-  const { archived } = req.body;
+  const { archived, title } = req.body;
+  const sessionName = req.params.name;
 
-  if (typeof archived !== "boolean") {
-    return res.status(400).json({ error: "Invalid request: archived must be a boolean" });
+  // Validate: at least one field must be provided
+  if (typeof archived !== "boolean" && typeof title !== "string") {
+    return res.status(400).json({
+      error: "Invalid request: provide 'archived' (boolean) or 'title' (string)"
+    });
   }
 
-  let success: boolean;
-  if (archived) {
-    success = sessionManager.archiveSession(req.params.name);
-  } else {
-    success = sessionManager.unarchiveSession(req.params.name);
+  // Handle title rename
+  if (typeof title === "string") {
+    const renamed = sessionManager.renameSession(sessionName, title);
+    if (!renamed) {
+      return res.status(404).json({ error: "Session not found" });
+    }
   }
 
-  if (!success) {
-    return res.status(404).json({ error: "Session not found" });
+  // Handle archive/unarchive
+  if (typeof archived === "boolean") {
+    let success: boolean;
+    if (archived) {
+      success = sessionManager.archiveSession(sessionName);
+    } else {
+      success = sessionManager.unarchiveSession(sessionName);
+    }
+    if (!success) {
+      return res.status(404).json({ error: "Session not found" });
+    }
   }
 
-  // Return updated session info
-  const sessions = sessionManager.listSessions({ archived });
-  const session = sessions.find((s) => s.name === req.params.name);
+  // Return updated session info (check both active and archived)
+  const activeSessions = sessionManager.listSessions({ archived: false });
+  const archivedSessions = sessionManager.listSessions({ archived: true });
+  const session = [...activeSessions, ...archivedSessions].find((s) => s.name === sessionName);
   res.json(session || { success: true });
 });
 
