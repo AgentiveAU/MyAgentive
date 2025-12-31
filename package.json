@@ -1,6 +1,6 @@
 {
   "name": "myagentive",
-  "version": "0.4.4",
+  "version": "0.5.1",
   "type": "module",
   "description": "MyAgentive, a multi-interface personal AI Agent application (Web, Telegram, CLI)",
   "scripts": {
@@ -70,6 +70,6 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.5.0",
     "vite": "^7.3.0",
-    "vite-plugin-pwa": "^0.20.0"
+    "vite-plugin-pwa": "^1.2.0"
   }
 }
