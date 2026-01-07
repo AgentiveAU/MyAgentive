@@ -27,9 +27,11 @@ RELEASE_DIR="release"
 echo "Cleaning old release artifacts..."
 rm -rf "$RELEASE_DIR/MyAgentive"
 rm -rf "$RELEASE_DIR/MyAgentive-linux"
+rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64"
 rm -rf dist
 mkdir -p "$RELEASE_DIR/MyAgentive"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64"
 
 # Build frontend
 echo "Building frontend..."
@@ -42,6 +44,10 @@ bun build --compile server/index.ts --outfile dist/myagentive
 # Build Linux binary
 echo "Building Linux x64 binary..."
 bun build --compile --target=bun-linux-x64 server/index.ts --outfile "$RELEASE_DIR/MyAgentive-linux/myagentive"
+
+# Build Linux ARM64 binary
+echo "Building Linux ARM64 binary..."
+bun build --compile --target=bun-linux-arm64 server/index.ts --outfile "$RELEASE_DIR/MyAgentive-linux-arm64/myagentive"
 
 # Prepare macOS package
 echo "Preparing macOS package..."
@@ -92,6 +98,28 @@ find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
 
+# Prepare Linux ARM64 package
+echo "Preparing Linux ARM64 package..."
+cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh"
+cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl"
+sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" && rm -f "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh.bak"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/dist"
+cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux-arm64/dist/"
+cp LICENSE "$RELEASE_DIR/MyAgentive-linux-arm64/"
+
+# Copy skills for Linux ARM64 to .claude/skills (SDK expects this location)
+rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/.claude"
+cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills"
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.env' -delete
+
+chmod +x "$RELEASE_DIR/MyAgentive-linux-arm64/myagentive" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl"
+
 # Create archives with version
 echo "Creating archives..."
 cd "$RELEASE_DIR"
@@ -103,6 +131,7 @@ rm -f MyAgentive-*.tar.gz
 echo "Stripping macOS extended attributes..."
 xattr -cr MyAgentive 2>/dev/null || true
 xattr -cr MyAgentive-linux 2>/dev/null || true
+xattr -cr MyAgentive-linux-arm64 2>/dev/null || true
 
 # Use GNU tar if available (supports --no-xattrs to prevent xattr headers in archive)
 # Install with: brew install gnu-tar
@@ -110,12 +139,14 @@ if command -v gtar &> /dev/null; then
     echo "Using GNU tar (gtar) for clean archives..."
     COPYFILE_DISABLE=1 gtar --no-xattrs -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
     COPYFILE_DISABLE=1 gtar --no-xattrs -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+    COPYFILE_DISABLE=1 gtar --no-xattrs -czvf "MyAgentive-v${VERSION}-linux-arm64.tar.gz" MyAgentive-linux-arm64
 else
     echo "Warning: GNU tar (gtar) not found. Archives may show xattr warnings on Linux."
     echo "Install with: brew install gnu-tar"
     # Fallback to BSD tar (COPYFILE_DISABLE prevents ._* AppleDouble files but not xattr headers)
     COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-macos.tar.gz" MyAgentive
     COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-linux-x64.tar.gz" MyAgentive-linux
+    COPYFILE_DISABLE=1 tar -czvf "MyAgentive-v${VERSION}-linux-arm64.tar.gz" MyAgentive-linux-arm64
 fi
 
 echo ""
