@@ -28,7 +28,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Determine static files directory
-// Priority: 1) Repo dist (dev mode), 2) MYAGENTIVE_HOME/dist, 3) cwd/dist, 4) client dir
+// Priority: 1) Repo dist (dev mode), 2) Homebrew dist, 3) MYAGENTIVE_HOME/dist, 4) client dir
 const getStaticDir = () => {
   // First check for dist relative to server file (repo dev mode)
   const repoDistPath = path.join(__dirname, "../dist");
@@ -36,7 +36,18 @@ const getStaticDir = () => {
     return repoDistPath;
   }
 
-  // Then check MYAGENTIVE_HOME or cwd (production/installed mode)
+  // Check Homebrew installation paths (Apple Silicon and Intel Macs)
+  const brewPaths = [
+    "/opt/homebrew/opt/myagentive/share/myagentive/dist", // Apple Silicon
+    "/usr/local/opt/myagentive/share/myagentive/dist", // Intel Mac
+  ];
+  for (const brewPath of brewPaths) {
+    if (fs.existsSync(brewPath)) {
+      return brewPath;
+    }
+  }
+
+  // Then check MYAGENTIVE_HOME or cwd (manual installation)
   const myagentiveHome = process.env.MYAGENTIVE_HOME || process.cwd();
   const distPath = path.join(myagentiveHome, "dist");
   if (fs.existsSync(distPath)) {
