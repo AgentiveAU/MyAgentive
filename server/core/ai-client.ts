@@ -4,9 +4,21 @@ import * as path from "path";
 // Current model preference (can be changed at runtime)
 let currentModel: "opus" | "sonnet" | "haiku" = "opus";
 
-// Project root directory (where .claude/skills/ lives)
-// Uses import.meta.dir to find the source location, then goes up to repo root
-const PROJECT_ROOT = path.resolve(import.meta.dir, "../..");
+// Determine project root directory (where .claude/skills/ lives)
+// In compiled binary: import.meta.dir returns /$bunfs/root/, use executable location
+// In development: use import.meta.dir relative to source
+function getProjectRoot(): string {
+  const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
+  if (isCompiledBinary) {
+    // Compiled binary: use the directory containing the executable
+    // Installation structure: ~/.myagentive/myagentive with .claude/skills/ alongside
+    return path.dirname(process.execPath);
+  }
+  // Development: go up from server/core/ to repo root
+  return path.resolve(import.meta.dir, "../..");
+}
+
+const PROJECT_ROOT = getProjectRoot();
 
 export function getCurrentModel(): string {
   return currentModel;

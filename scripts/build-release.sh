@@ -14,6 +14,14 @@ fi
 
 echo "Building MyAgentive v$VERSION release packages..."
 
+# Update version.ts with current version (for compiled binary)
+echo "Updating version.ts..."
+cat > server/version.ts << EOF
+// This file is auto-generated during build
+// DO NOT EDIT MANUALLY - it will be overwritten by build-release.sh
+export const APP_VERSION = "$VERSION";
+EOF
+
 # Create release directory
 RELEASE_DIR="release"
 mkdir -p "$RELEASE_DIR"
