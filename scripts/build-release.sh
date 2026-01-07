@@ -46,11 +46,12 @@ bun build --compile --target=bun-linux-x64 server/index.ts --outfile "$RELEASE_D
 # Prepare macOS package
 echo "Preparing macOS package..."
 cp dist/myagentive "$RELEASE_DIR/MyAgentive/"
-# Copy and configure install script from template
+# Copy and configure install script and control script from templates
 cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive/install.sh"
+cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive/myagentivectl"
 sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive/install.sh" && rm -f "$RELEASE_DIR/MyAgentive/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive/dist"
-cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive/dist/"
+cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
 
 # Copy skills to .claude/skills (SDK expects this location)
@@ -70,11 +71,12 @@ chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentiv
 
 # Prepare Linux package
 echo "Preparing Linux package..."
-# Copy and configure install script from template
+# Copy and configure install script and control script from templates
 cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive-linux/install.sh"
+cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
 sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux/install.sh" && rm -f "$RELEASE_DIR/MyAgentive-linux/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
-cp -r dist/assets dist/index.html "$RELEASE_DIR/MyAgentive-linux/dist/"
+cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
 
 # Copy skills for Linux to .claude/skills (SDK expects this location)
