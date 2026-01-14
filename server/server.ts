@@ -28,12 +28,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Determine static files directory
-// Priority: 1) Repo dist (dev mode), 2) Homebrew dist, 3) MYAGENTIVE_HOME/dist, 4) client dir
+// In compiled binary: use MYAGENTIVE_HOME/dist (not embedded dist)
+// In development: use repo dist
 const getStaticDir = () => {
-  // First check for dist relative to server file (repo dev mode)
-  const repoDistPath = path.join(__dirname, "../dist");
-  if (fs.existsSync(repoDistPath)) {
-    return repoDistPath;
+  // Check if running as compiled Bun binary
+  const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
+
+  if (!isCompiledBinary) {
+    // Development mode: check for dist relative to server file
+    const repoDistPath = path.join(__dirname, "../dist");
+    if (fs.existsSync(repoDistPath)) {
+      return repoDistPath;
+    }
+  }
+
+  // For compiled binary or if no repo dist found:
+  // Check MYAGENTIVE_HOME first (installed dist should be here)
+  const myagentiveHome = process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+  const distPath = path.join(myagentiveHome, "dist");
+  if (fs.existsSync(distPath)) {
+    return distPath;
   }
 
   // Check Homebrew installation paths (Apple Silicon and Intel Macs)
@@ -45,13 +59,6 @@ const getStaticDir = () => {
     if (fs.existsSync(brewPath)) {
       return brewPath;
     }
-  }
-
-  // Then check MYAGENTIVE_HOME or cwd (manual installation)
-  const myagentiveHome = process.env.MYAGENTIVE_HOME || process.cwd();
-  const distPath = path.join(myagentiveHome, "dist");
-  if (fs.existsSync(distPath)) {
-    return distPath;
   }
 
   // Fallback to client directory (Vite dev server handles this)
