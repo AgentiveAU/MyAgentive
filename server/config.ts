@@ -1,4 +1,9 @@
 import "dotenv/config";
+import path from "path";
+
+// Base directory for MyAgentive installation
+// Uses MYAGENTIVE_HOME if set, otherwise ~/.myagentive
+const MYAGENTIVE_HOME = process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
 
 function required(name: string): string {
   const value = process.env[name];
@@ -10,6 +15,23 @@ function required(name: string): string {
 
 function optional(name: string, defaultValue: string): string {
   return process.env[name] || defaultValue;
+}
+
+/**
+ * Resolve a path to absolute, relative to MYAGENTIVE_HOME if not already absolute.
+ * This ensures paths work correctly regardless of the process's current working directory.
+ * Examples:
+ *   "./media" -> "/Users/x/.myagentive/media"
+ *   "media" -> "/Users/x/.myagentive/media"
+ *   "/custom/path" -> "/custom/path" (unchanged)
+ */
+function resolvePath(rawPath: string): string {
+  if (path.isAbsolute(rawPath)) {
+    return rawPath;
+  }
+  // Strip leading ./ if present, then resolve relative to MYAGENTIVE_HOME
+  const cleanPath = rawPath.replace(/^\.\//, "");
+  return path.join(MYAGENTIVE_HOME, cleanPath);
 }
 
 export const config = {
@@ -36,11 +58,11 @@ export const config = {
     .filter((id) => id !== "")
     .map((id) => parseInt(id)),
 
-  // Database
-  databasePath: optional("DATABASE_PATH", "./data/myagentive.db"),
+  // Database - resolve to absolute path for consistent access
+  databasePath: resolvePath(optional("DATABASE_PATH", "./data/myagentive.db")),
 
-  // Media
-  mediaPath: optional("MEDIA_PATH", "./media"),
+  // Media - resolve to absolute path so agent can find uploaded files
+  mediaPath: resolvePath(optional("MEDIA_PATH", "./media")),
 
   // Derived
   isDev: optional("NODE_ENV", "development") === "development",
