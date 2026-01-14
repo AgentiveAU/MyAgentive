@@ -26,8 +26,17 @@ fi
 # Create installation directory
 mkdir -p "$INSTALL_DIR"
 
-# Copy files
-cp -r . "$INSTALL_DIR/"
+# Remove old bin/ directory structure if it exists (migration from old layout)
+if [ -d "$INSTALL_DIR/bin" ]; then
+    echo "Migrating from old installation layout..."
+    rm -f "$INSTALL_DIR/bin/myagentive"
+    rm -f "$INSTALL_DIR/bin/myagentivectl"
+fi
+
+# Copy files with force overwrite
+cp -rf myagentive myagentivectl default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
+cp -rf dist "$INSTALL_DIR/"
+cp -rf .claude "$INSTALL_DIR/"
 
 # Create symlink for CLI
 mkdir -p "${HOME}/.local/bin"
