@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { User, Bot, Copy, RotateCcw, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
@@ -85,9 +86,9 @@ export function Message({ message, onRetry }: MessageProps) {
             {isUser ? (
               <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
             ) : (
-              <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted-foreground/10 prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none">
+              <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted-foreground/10 prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-table:my-2 prose-table:border-collapse prose-th:border prose-th:border-border prose-th:bg-muted prose-th:px-3 prose-th:py-1 prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-1">
                 <ReactMarkdown
-                  remarkPlugins={[remarkMath]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeKatex]}
                   components={{
                     // Code blocks with copy button or mermaid diagrams
