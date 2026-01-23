@@ -348,7 +348,8 @@ export async function startServer(): Promise<void> {
       });
     });
 
-    // Heartbeat to detect dead connections
+    // Heartbeat to detect dead connections and keep connections alive through Cloudflare Tunnel
+    // Uses configurable interval (default 30s) to stay under Cloudflare's 60s idle timeout
     heartbeatInterval = setInterval(() => {
       wss.clients.forEach((ws) => {
         const client = ws as WSClient;
@@ -361,7 +362,7 @@ export async function startServer(): Promise<void> {
         client.isAlive = false;
         client.ping();
       });
-    }, 30000);
+    }, config.wsHeartbeatInterval);
 
     server.listen(config.port, () => {
       console.log(`Server running at http://localhost:${config.port}`);

@@ -64,6 +64,10 @@ export const config = {
   // Media - resolve to absolute path so agent can find uploaded files
   mediaPath: resolvePath(optional("MEDIA_PATH", "./media")),
 
+  // WebSocket heartbeat interval in milliseconds (for Cloudflare Tunnel compatibility)
+  // Default: 30000ms (30 seconds) - keeps connections alive through Cloudflare's 60s idle timeout
+  wsHeartbeatInterval: parseInt(optional("WS_HEARTBEAT_INTERVAL", "30000")),
+
   // Derived
   isDev: optional("NODE_ENV", "development") === "development",
   isProd: optional("NODE_ENV", "development") === "production",
