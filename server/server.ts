@@ -348,7 +348,7 @@ export async function startServer(): Promise<void> {
       });
     });
 
-    // Heartbeat to detect dead connections
+    // Heartbeat to detect dead connections and keep Cloudflare Tunnel alive
     heartbeatInterval = setInterval(() => {
       wss.clients.forEach((ws) => {
         const client = ws as WSClient;
@@ -356,10 +356,24 @@ export async function startServer(): Promise<void> {
           if (client.clientId) {
             sessionManager.unsubscribeClient(client.clientId);
           }
-          return client.terminate();
+          try {
+            client.terminate();
+          } catch {
+            // Client already in invalid state, ignore
+          }
+          return;
         }
         client.isAlive = false;
-        client.ping();
+        // Protocol-level ping
+        try {
+          client.ping();
+        } catch {
+          // Ignore ping errors on dead connections
+        }
+        // Application-level ping for Cloudflare Tunnel compatibility
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify({ type: "ping", timestamp: Date.now() }));
+        }
       });
     }, 30000);
 
