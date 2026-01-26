@@ -47,7 +47,11 @@ export interface WSSwitchSessionMessage {
   sessionName: string;
 }
 
-export type IncomingWSMessage = WSChatMessage | WSSubscribeMessage | WSSwitchSessionMessage;
+export interface WSPingMessage {
+  type: "ping";
+}
+
+export type IncomingWSMessage = WSChatMessage | WSSubscribeMessage | WSSwitchSessionMessage | WSPingMessage;
 
 // Outgoing WebSocket messages
 export interface WSConnectedMessage {
@@ -106,6 +110,11 @@ export interface WSSessionsListMessage {
   sessions: SessionInfo[];
 }
 
+export interface WSPongMessage {
+  type: "pong";
+  timestamp: number;
+}
+
 export type OutgoingWSMessage =
   | WSConnectedMessage
   | WSHistoryMessage
@@ -115,7 +124,8 @@ export type OutgoingWSMessage =
   | WSResultMessage
   | WSSessionSwitchedMessage
   | WSErrorMessage
-  | WSSessionsListMessage;
+  | WSSessionsListMessage
+  | WSPongMessage;
 
 // Activity event for monitoring
 export interface ActivityEvent {

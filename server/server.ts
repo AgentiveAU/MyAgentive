@@ -442,6 +442,13 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
       break;
     }
 
+    case "ping": {
+      // Application-level ping/pong for Cloudflare Tunnel compatibility
+      // Cloudflare has ~60s idle timeout; protocol-level pings may not count as data
+      sendToClient({ type: "pong", timestamp: Date.now() });
+      break;
+    }
+
     default:
       console.warn("Unknown message type:", (message as any).type);
   }

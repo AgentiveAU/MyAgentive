@@ -378,6 +378,18 @@ export default function App() {
     }
   }, [isAuthenticated, sessions, currentSessionName, isConnected, sessionsLoading]);
 
+  // Application-level ping for Cloudflare Tunnel compatibility
+  // Cloudflare has ~60s idle timeout; protocol-level pings may not count as data
+  useEffect(() => {
+    if (readyState !== ReadyState.OPEN) return;
+
+    const pingInterval = setInterval(() => {
+      sendJsonMessage({ type: "ping" });
+    }, 25000); // 25 seconds - safe margin under 60s timeout
+
+    return () => clearInterval(pingInterval);
+  }, [readyState, sendJsonMessage]);
+
   // Connection status notifications
   useEffect(() => {
     if (!isAuthenticated) return;
