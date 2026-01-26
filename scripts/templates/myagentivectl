@@ -5,7 +5,7 @@
 INSTALL_DIR="$HOME/.myagentive"
 PID_FILE="$INSTALL_DIR/myagentive.pid"
 LOG_FILE="$INSTALL_DIR/myagentive.log"
-BIN="$INSTALL_DIR/myagentive"
+BIN="$INSTALL_DIR/bin/myagentive"
 
 usage() {
     echo "Usage: myagentivectl <command>"

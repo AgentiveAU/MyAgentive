@@ -5,6 +5,7 @@ set -e
 
 VERSION="__VERSION__"
 INSTALL_DIR="${HOME}/.myagentive"
+BIN_DIR="$INSTALL_DIR/bin"
 
 echo "Installing MyAgentive v${VERSION}..."
 
@@ -25,23 +26,25 @@ fi
 
 # Create installation directory
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$BIN_DIR"
 
-# Remove old bin/ directory structure if it exists (migration from old layout)
-if [ -d "$INSTALL_DIR/bin" ]; then
+# Remove old flat layout binaries if they exist (migration to bin/ structure)
+if [ -f "$INSTALL_DIR/myagentive" ] && [ ! -L "$INSTALL_DIR/myagentive" ]; then
     echo "Migrating from old installation layout..."
-    rm -f "$INSTALL_DIR/bin/myagentive"
-    rm -f "$INSTALL_DIR/bin/myagentivectl"
+    rm -f "$INSTALL_DIR/myagentive"
+    rm -f "$INSTALL_DIR/myagentivectl"
 fi
 
 # Copy files with force overwrite
-cp -rf myagentive myagentivectl default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
+cp -rf myagentive myagentivectl "$BIN_DIR/"
+cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
 cp -rf dist "$INSTALL_DIR/"
 cp -rf .claude "$INSTALL_DIR/"
 
 # Create symlink for CLI
 mkdir -p "${HOME}/.local/bin"
-ln -sf "$INSTALL_DIR/myagentive" "${HOME}/.local/bin/myagentive"
-ln -sf "$INSTALL_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"
+ln -sf "$BIN_DIR/myagentive" "${HOME}/.local/bin/myagentive"
+ln -sf "$BIN_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"
 
 echo ""
 echo "MyAgentive v${VERSION} installed successfully!"
