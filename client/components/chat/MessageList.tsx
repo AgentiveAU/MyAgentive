@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Bot, ArrowDown } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Bot } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
-import { Button } from "../ui/button";
 import { Message } from "./Message";
 import { ToolUse } from "./ToolUse";
 import { TypingIndicator } from "./TypingIndicator";
 import { PromptSuggestions } from "./PromptSuggestions";
-import { cn } from "@/lib/utils";
 
 interface MessageData {
   id: string;
@@ -26,65 +24,11 @@ interface MessageListProps {
 
 export function MessageList({ messages, isLoading, onRetry, onSuggest }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [userScrolled, setUserScrolled] = useState(false);
-  const prevUserMsgCountRef = useRef(0);
 
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
-    setShowScrollButton(false);
-    setUserScrolled(false);
-  }, []);
-
-  // Reset userScrolled when user sends a new message
+  // Auto-scroll to bottom whenever messages change
   useEffect(() => {
-    const userMsgCount = messages.filter((m) => m.role === "user").length;
-    if (userMsgCount > prevUserMsgCountRef.current) {
-      // User sent a new message, reset scroll state so auto-scroll works
-      setUserScrolled(false);
-    }
-    prevUserMsgCountRef.current = userMsgCount;
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Use IntersectionObserver for reliable scroll detection on mobile
-  useEffect(() => {
-    const endElement = messagesEndRef.current;
-    if (!endElement) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Show button when the end marker is NOT visible (user scrolled up)
-        const isAtBottom = entry.isIntersecting;
-        setShowScrollButton(!isAtBottom);
-        if (!isAtBottom) {
-          setUserScrolled(true);
-        }
-      },
-      {
-        root: null,
-        rootMargin: "0px",
-        threshold: 0.1,
-      }
-    );
-
-    observer.observe(endElement);
-    return () => observer.disconnect();
-  }, [messages.length]); // Re-observe when messages change
-
-  // Auto-scroll on new messages (only if user hasn't scrolled up)
-  useEffect(() => {
-    if (!userScrolled) {
-      scrollToBottom("smooth");
-    }
-  }, [messages, userScrolled, scrollToBottom]);
-
-  // Always scroll to bottom when loading starts
-  useEffect(() => {
-    if (isLoading && !userScrolled) {
-      scrollToBottom("smooth");
-    }
-  }, [isLoading, userScrolled, scrollToBottom]);
 
   if (messages.length === 0 && !isLoading) {
     return (
@@ -118,7 +62,7 @@ export function MessageList({ messages, isLoading, onRetry, onSuggest }: Message
 
   return (
     <div className="relative flex-1 overflow-hidden">
-      <ScrollArea className="h-full" ref={scrollAreaRef}>
+      <ScrollArea className="h-full">
         <div className="p-4 space-y-4 overflow-x-hidden">
           {messages.map((msg) =>
             msg.role === "tool_use" ? (
@@ -131,18 +75,6 @@ export function MessageList({ messages, isLoading, onRetry, onSuggest }: Message
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-
-      {/* Scroll to bottom button - positioned higher on mobile to avoid input overlap */}
-      {showScrollButton && (
-        <Button
-          variant="secondary"
-          size="icon"
-          className="absolute bottom-20 md:bottom-4 right-4 z-50 h-10 w-10 rounded-full shadow-lg border animate-in fade-in slide-in-from-bottom-2"
-          onClick={() => scrollToBottom("smooth")}
-        >
-          <ArrowDown className="h-5 w-5" />
-        </Button>
-      )}
     </div>
   );
 }
