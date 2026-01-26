@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "../ui/tooltip";
 import { cn, copyToClipboard } from "@/lib/utils";
-import { detectMediaPaths } from "@/lib/media-utils";
+import { detectMediaPaths, parseUploadedFile } from "@/lib/media-utils";
 import { MediaPreview } from "./MediaPreview";
 import { CodeBlock } from "./CodeBlock";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -41,6 +41,12 @@ export function Message({ message, onRetry }: MessageProps) {
   const mediaFiles = useMemo(() => {
     if (isUser) return [];
     return detectMediaPaths(message.content);
+  }, [message.content, isUser]);
+
+  // Parse uploaded file from user messages
+  const userUpload = useMemo(() => {
+    if (!isUser) return { media: null, userText: message.content };
+    return parseUploadedFile(message.content);
   }, [message.content, isUser]);
 
   const handleCopy = async () => {
@@ -73,7 +79,15 @@ export function Message({ message, onRetry }: MessageProps) {
 
       {/* Message Content */}
       <div className={cn("flex flex-col gap-1 max-w-[80%] min-w-0", isUser && "items-end")}>
-        {/* Message Bubble */}
+        {/* User Uploaded Media */}
+        {isUser && userUpload.media && (
+          <div className="mb-1">
+            <MediaPreview media={userUpload.media} />
+          </div>
+        )}
+
+        {/* Message Bubble - hide if user message is only an attachment with no text */}
+        {(!isUser || userUpload.userText) && (
         <div className="relative min-w-0">
           <div
             className={cn(
@@ -84,7 +98,7 @@ export function Message({ message, onRetry }: MessageProps) {
             )}
           >
             {isUser ? (
-              <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words text-sm">{userUpload.userText}</p>
             ) : (
               <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1 prose-pre:my-2 prose-pre:bg-muted-foreground/10 prose-code:text-primary prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-table:my-2 prose-table:border-collapse prose-th:border prose-th:border-border prose-th:bg-muted prose-th:px-3 prose-th:py-1 prose-td:border prose-td:border-border prose-td:px-3 prose-td:py-1">
                 <ReactMarkdown
@@ -177,6 +191,7 @@ export function Message({ message, onRetry }: MessageProps) {
             </TooltipProvider>
           </div>
         </div>
+        )}
 
         {/* Media Files */}
         {!isUser && mediaFiles.length > 0 && (

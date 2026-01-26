@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Search, Download } from "lucide-react";
+import { Search, Download, Upload } from "lucide-react";
 import { MessageList } from "./chat/MessageList";
 import { ChatInput } from "./chat/ChatInput";
 import { ChatSearch, useChatSearch } from "./chat/ChatSearch";
@@ -34,9 +34,12 @@ export function ChatWindow({
   onSendMessage,
 }: ChatWindowProps) {
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | undefined>();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
   const { isSearchOpen, openSearch, closeSearch } = useChatSearch();
   const { isExportOpen, openExport, setExportOpen } = useExportChat();
   const messageListRef = useRef<{ scrollToMessage: (id: string) => void }>(null);
+  const dragCounterRef = useRef(0);
 
   const handleSuggest = useCallback((prompt: string) => {
     setSuggestedPrompt(prompt);
@@ -59,6 +62,46 @@ export function ChatWindow({
     }
   }, []);
 
+  // Drag and drop handlers for the entire chat window
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    dragCounterRef.current = 0;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      setDroppedFile(file);
+    }
+  }, []);
+
+  const clearDroppedFile = useCallback(() => {
+    setDroppedFile(null);
+  }, []);
+
   if (!chatId) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -73,7 +116,24 @@ export function ChatWindow({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full min-h-0">
+    <div
+      className="flex-1 flex flex-col h-full min-h-0 relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-primary/10 border-2 border-dashed border-primary rounded-2xl p-12 text-center">
+            <Upload className="h-16 w-16 text-primary mx-auto mb-4" />
+            <p className="text-xl font-semibold text-primary">Drop file here</p>
+            <p className="text-sm text-muted-foreground mt-1">Release to upload</p>
+          </div>
+        </div>
+      )}
+
       {/* Header - desktop only */}
       <header className="hidden md:flex h-14 items-center px-4 border-b shrink-0">
         <h1 className="text-lg font-semibold">Chat</h1>
@@ -125,6 +185,9 @@ export function ChatWindow({
         placeholder={isConnected ? "Type a message..." : "Connecting..."}
         suggestedPrompt={suggestedPrompt}
         onSuggestedPromptUsed={clearSuggestion}
+        sessionName={sessionName}
+        droppedFile={droppedFile}
+        onDroppedFileHandled={clearDroppedFile}
       />
 
       {/* Export Dialog */}

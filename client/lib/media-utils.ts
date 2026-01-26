@@ -42,13 +42,79 @@ const EXTENSION_TO_TYPE: Record<string, MediaType> = {
  * Detect media file paths in message content.
  * Supports both absolute paths (containing /media/) and relative paths (starting with media/).
  */
+/**
+ * Parse uploaded file info from user message content.
+ * Matches the system message format: [Attached: type:photo, url:/api/media/photos/uuid.jpg, name:filename.jpg]
+ * Returns the media info and the remaining user text (if any).
+ */
+export function parseUploadedFile(content: string): { media: DetectedMedia | null; userText: string } {
+  // Pattern: [[ATTACHMENT|||type:photo|||url:/api/media/...|||name:filename.jpg]]
+  // Uses ||| as delimiter to avoid conflicts with [] in filenames
+  const uploadPattern = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
+  const match = content.match(uploadPattern);
+
+  if (!match) {
+    // Also try legacy format for backwards compatibility
+    const legacyPattern = /\[Attached:\s*type:(\w+),\s*url:([^,\s\]]+),\s*name:([^\]]*)\]/;
+    const legacyMatch = content.match(legacyPattern);
+    if (!legacyMatch) {
+      return { media: null, userText: content };
+    }
+    // Process legacy format
+    const [fullMatch, fileType, webUrl, rawFilename] = legacyMatch;
+    const userText = content.replace(fullMatch, "").trim();
+    let filename = rawFilename.trim().replace(/[\[\]]+/g, "");
+    if (!filename || filename.startsWith(".")) {
+      const urlParts = webUrl.split("/");
+      filename = urlParts[urlParts.length - 1] || "file";
+    }
+    return {
+      media: { type: mapFileType(fileType), filename, webUrl },
+      userText,
+    };
+  }
+
+  const [fullMatch, fileType, webUrl, rawFilename] = match;
+
+  // Extract user text (everything except the attachment tag)
+  const userText = content.replace(fullMatch, "").trim();
+
+  // Clean filename
+  const filename = rawFilename.trim();
+
+  return {
+    media: { type: mapFileType(fileType), filename, webUrl },
+    userText,
+  };
+}
+
+// Helper to map file type string to MediaType
+function mapFileType(fileType: string): MediaType {
+  switch (fileType) {
+    case "photo":
+      return "image";
+    case "video":
+      return "video";
+    case "audio":
+    case "voice":
+      return "audio";
+    default:
+      return "document";
+  }
+}
+
+/**
+ * Detect media file paths in message content.
+ * Supports both absolute paths (containing /media/) and relative paths (starting with media/).
+ */
 export function detectMediaPaths(content: string): DetectedMedia[] {
   const detected: DetectedMedia[] = [];
   const seenUrls = new Set<string>();
 
   // Pattern 1: Absolute paths containing /media/
   // Matches: /home/user/.myagentive/media/audio/file.mp3
-  const absolutePathRegex = /\/[^\s]+\/media\/([^\s]+\.[a-zA-Z0-9]+)/g;
+  // Excludes brackets and other special chars that might trail the path
+  const absolutePathRegex = /\/[^\s\[\]]+\/media\/([^\s\[\]]+\.[a-zA-Z0-9]+)/g;
 
   // Pattern 2: Relative paths starting with "media/"
   // Matches: media/audio/file.mp3 or ./media/audio/file.mp3
@@ -64,7 +130,9 @@ export function detectMediaPaths(content: string): DetectedMedia[] {
     seenUrls.add(webUrl);
 
     const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
-    const filename = relativePath.split("/").pop() || relativePath;
+    const rawFilename = relativePath.split("/").pop() || relativePath;
+    // Clean filename - remove any trailing brackets or special chars
+    const filename = rawFilename.replace(/[\[\]]+$/, "");
     const type = EXTENSION_TO_TYPE[ext] || "document";
 
     detected.push({ type, filename, webUrl });
@@ -80,7 +148,9 @@ export function detectMediaPaths(content: string): DetectedMedia[] {
     seenUrls.add(webUrl);
 
     const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
-    const filename = relativePath.split("/").pop() || relativePath;
+    const rawFilename = relativePath.split("/").pop() || relativePath;
+    // Clean filename - remove any trailing brackets or special chars
+    const filename = rawFilename.replace(/[\[\]]+$/, "");
     const type = EXTENSION_TO_TYPE[ext] || "document";
 
     detected.push({ type, filename, webUrl });
