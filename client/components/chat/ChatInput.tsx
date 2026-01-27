@@ -187,7 +187,28 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (e.key === "Enter") {
+      // Ctrl+Enter or Cmd+Enter: insert new line
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const textarea = e.currentTarget;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newValue = input.substring(0, start) + "\n" + input.substring(end);
+        setInput(newValue);
+        // Set cursor position after the newline
+        setTimeout(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + 1;
+        }, 0);
+        return;
+      }
+
+      // Shift+Enter: allow default behavior (new line)
+      if (e.shiftKey) {
+        return;
+      }
+
+      // Enter alone: send message
       e.preventDefault();
       handleSubmit(e as any);
     }
@@ -556,7 +577,7 @@ export function ChatInput({
         </Button>
       </form>
       <p className="text-xs text-muted-foreground mt-2">
-        Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send
+        Press Enter to send, {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter for new line
         {" · "}
         <span className="opacity-70">📎 Attach files · 🎤 Voice message</span>
       </p>
