@@ -44,6 +44,7 @@ async function bootstrap(): Promise<void> {
     sendStartupMessage,
     sendShutdownMessage,
   } = await import("./telegram/monitoring.js");
+  const { cleanupExpiredTokens } = await import("./auth/middleware.js");
 
   console.log(`Starting MyAgentive v${APP_VERSION}...`);
   console.log(`Environment: ${config.nodeEnv}`);
@@ -65,6 +66,15 @@ async function bootstrap(): Promise<void> {
   // Send startup notification
   await sendStartupMessage();
 
+  // Run token cleanup on startup and every hour
+  cleanupExpiredTokens();
+  const tokenCleanupInterval = setInterval(() => {
+    const deleted = cleanupExpiredTokens();
+    if (deleted > 0) {
+      console.log(`Cleaned up ${deleted} expired auth token(s)`);
+    }
+  }, 60 * 60 * 1000);
+
   console.log("MyAgentive is ready!");
   console.log(`Web interface: http://localhost:${config.port}`);
 
@@ -78,6 +88,7 @@ async function bootstrap(): Promise<void> {
       console.error("Error sending shutdown message:", e);
     }
 
+    clearInterval(tokenCleanupInterval);
     await stopTelegramBot();
     await stopServer();
     closeDatabase();
