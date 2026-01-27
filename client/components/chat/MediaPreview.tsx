@@ -73,7 +73,7 @@ export function MediaPreview({ media }: MediaPreviewProps) {
               <img
                 src={media.webUrl}
                 alt={media.filename}
-                className="w-full aspect-square object-cover hover:opacity-90 transition-opacity cursor-pointer"
+                className="w-full max-h-80 object-contain hover:opacity-90 transition-opacity cursor-pointer"
               />
             </a>
             <div className="px-3 py-2 flex items-center justify-between">

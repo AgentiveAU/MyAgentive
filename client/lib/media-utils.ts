@@ -39,12 +39,8 @@ const EXTENSION_TO_TYPE: Record<string, MediaType> = {
 };
 
 /**
- * Detect media file paths in message content.
- * Supports both absolute paths (containing /media/) and relative paths (starting with media/).
- */
-/**
  * Parse uploaded file info from user message content.
- * Matches the system message format: [Attached: type:photo, url:/api/media/photos/uuid.jpg, name:filename.jpg]
+ * Matches the attachment tag format: [[ATTACHMENT|||type:photo|||url:/api/media/photos/uuid.jpg|||name:filename.jpg]]
  * Returns the media info and the remaining user text (if any).
  */
 export function parseUploadedFile(content: string): { media: DetectedMedia | null; userText: string } {
@@ -54,30 +50,59 @@ export function parseUploadedFile(content: string): { media: DetectedMedia | nul
   const match = content.match(uploadPattern);
 
   if (!match) {
-    // Also try legacy format for backwards compatibility
+    // Try legacy format: [Attached: type:photo, url:/api/media/..., name:filename.jpg]
     const legacyPattern = /\[Attached:\s*type:(\w+),\s*url:([^,\s\]]+),\s*name:([^\]]*)\]/;
     const legacyMatch = content.match(legacyPattern);
-    if (!legacyMatch) {
-      return { media: null, userText: content };
+    if (legacyMatch) {
+      const [fullMatch, fileType, webUrl, rawFilename] = legacyMatch;
+      const userText = content.replace(fullMatch, "").trim();
+      let filename = rawFilename.trim().replace(/[\[\]]+/g, "");
+      if (!filename || filename.startsWith(".")) {
+        const urlParts = webUrl.split("/");
+        filename = urlParts[urlParts.length - 1] || "file";
+      }
+      return {
+        media: { type: mapFileType(fileType), filename, webUrl },
+        userText,
+      };
     }
-    // Process legacy format
-    const [fullMatch, fileType, webUrl, rawFilename] = legacyMatch;
-    const userText = content.replace(fullMatch, "").trim();
-    let filename = rawFilename.trim().replace(/[\[\]]+/g, "");
-    if (!filename || filename.startsWith(".")) {
-      const urlParts = webUrl.split("/");
-      filename = urlParts[urlParts.length - 1] || "file";
+
+    // Try old Telegram format: [System: User uploaded a photo file. Path: /abs/path, Caption: text]
+    const telegramLegacy = /\[System:\s*User uploaded a (\w+) file\.\s*Path:\s*([^,\]]+)(?:,\s*Original name:\s*([^,\]]+))?(?:,\s*Caption:\s*([^\]]*))?\]/;
+    const telegramMatch = content.match(telegramLegacy);
+    if (telegramMatch) {
+      const [fullMatch, fileType, absPath, origName, caption] = telegramMatch;
+      // Extract relative path from absolute: .../media/photos/uuid.jpg → photos/uuid.jpg
+      const mediaIndex = absPath.indexOf("/media/");
+      const relativePath = mediaIndex !== -1 ? absPath.substring(mediaIndex + "/media/".length) : "";
+      const webUrl = relativePath ? `/api/media/${relativePath}` : "";
+      const pathFilename = absPath.split("/").pop() || "file";
+      const filename = origName?.trim() || pathFilename;
+      const userText = caption?.trim() || "";
+
+      if (webUrl) {
+        return {
+          media: { type: mapFileType(fileType), filename, webUrl },
+          userText,
+        };
+      }
     }
-    return {
-      media: { type: mapFileType(fileType), filename, webUrl },
-      userText,
-    };
+
+    return { media: null, userText: content };
   }
 
   const [fullMatch, fileType, webUrl, rawFilename] = match;
 
   // Extract user text (everything except the attachment tag)
-  const userText = content.replace(fullMatch, "").trim();
+  let userText = content.replace(fullMatch, "").trim();
+
+  // Strip system instructions not meant for display
+  // e.g. [System: File path for agent access: ...] and [This is a voice message...]
+  userText = userText
+    .replace(/\[System:[^\]]*\]/g, "")
+    .replace(/\[This is a voice message[^\]]*\]/g, "")
+    .replace(/\[Voice message recorded[^\]]*\]/g, "")
+    .trim();
 
   // Clean filename
   const filename = rawFilename.trim();

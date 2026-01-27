@@ -49,6 +49,8 @@ export function ChatInput({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const audioUrlRef = useRef<string | null>(null);
+  const cancelledRef = useRef(false);
 
   // When a suggested prompt is provided, fill the input
   useEffect(() => {
@@ -84,6 +86,9 @@ export function ChatInput({
   }, [selectedFile]);
 
   const handleFileSelect = useCallback((file: File) => {
+    // Block file selection while recording or reviewing a voice message
+    if (isRecording || audioBlob) return;
+
     if (file.size > MAX_FILE_SIZE) {
       alert("File too large. Maximum size is 50MB.");
       return;
@@ -96,7 +101,7 @@ export function ChatInput({
     }
 
     setSelectedFile({ file, preview });
-  }, []);
+  }, [isRecording, audioBlob]);
 
   // Handle file dropped from parent (ChatWindow drag overlay)
   useEffect(() => {
@@ -122,7 +127,7 @@ export function ChatInput({
     setSelectedFile(null);
   };
 
-  const uploadFile = async (file: File): Promise<{ storedPath: string; fileType: string; originalFilename: string } | null> => {
+  const uploadFile = async (file: File): Promise<{ storedPath: string; fileType: string; originalFilename: string; webUrl: string } | null> => {
     const formData = new FormData();
     formData.append("file", file);
     if (sessionName) {
@@ -240,6 +245,7 @@ export function ChatInput({
       });
 
       audioChunksRef.current = [];
+      cancelledRef.current = false;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -248,12 +254,15 @@ export function ChatInput({
       };
 
       mediaRecorder.onstop = () => {
+        // Stop all tracks regardless of cancel state
+        stream.getTracks().forEach((track) => track.stop());
+
+        // Don't set audio state if recording was cancelled
+        if (cancelledRef.current) return;
+
         const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
         setAudioBlob(blob);
         setAudioUrl(URL.createObjectURL(blob));
-
-        // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -284,6 +293,8 @@ export function ChatInput({
   };
 
   const cancelRecording = () => {
+    cancelledRef.current = true;
+
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
@@ -337,14 +348,19 @@ export function ChatInput({
     }
   };
 
+  // Keep audioUrlRef in sync with audioUrl state
+  useEffect(() => {
+    audioUrlRef.current = audioUrl;
+  }, [audioUrl]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
       }
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl);
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
       }
     };
   }, []);

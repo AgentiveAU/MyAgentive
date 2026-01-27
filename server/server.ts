@@ -238,8 +238,8 @@ app.get("/api/media/*", authMiddleware, (req, res) => {
     const start = parseInt(parts[0], 10);
     const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
 
-    // Validate range
-    if (start >= fileSize || end >= fileSize || start > end) {
+    // Validate range (including NaN from malformed headers)
+    if (isNaN(start) || isNaN(end) || start < 0 || start >= fileSize || end >= fileSize || start > end) {
       res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
       return res.end();
     }
@@ -253,6 +253,14 @@ app.get("/api/media/*", authMiddleware, (req, res) => {
     res.setHeader("Accept-Ranges", "bytes");
 
     const stream = fs.createReadStream(fullPath, { start, end });
+    stream.on("error", (err) => {
+      console.error("[Media] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
     stream.pipe(res);
   } else {
     // No Range header - serve entire file
@@ -261,6 +269,14 @@ app.get("/api/media/*", authMiddleware, (req, res) => {
     res.setHeader("Accept-Ranges", "bytes");
 
     const stream = fs.createReadStream(fullPath);
+    stream.on("error", (err) => {
+      console.error("[Media] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
     stream.pipe(res);
   }
 });

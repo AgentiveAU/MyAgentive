@@ -131,14 +131,18 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     );
 
     // Build message for the agent about the file
+    // Use the [[ATTACHMENT]] tag format so web UI can render the media inline
+    const webUrl = `/api/media/${subDir}/${storedFilename}`;
+    const attachmentTag = `[[ATTACHMENT|||type:${fileType}|||url:${webUrl}|||name:${displayName}]]`;
+
     // Only suggest transcription for voice messages (user speaking), not audio files (music, etc.)
     // Don't force a specific tool - let the agent decide (Deepgram, Whisper, etc.)
     const transcriptionInstruction = fileType === "voice"
-      ? " This is a voice message from the user. Please transcribe it and respond to what they said."
+      ? "\n\n[This is a voice message from the user. Please transcribe it and respond to what they said.]"
       : "";
-    const fileMessage = `[System: User uploaded a ${fileType} file. Path: ${storedPath}${
-      originalFilename ? `, Original name: ${originalFilename}` : ""
-    }${message.caption ? `, Caption: ${message.caption}` : ""}]${transcriptionInstruction}`;
+    const captionText = message.caption ? `\n\n${message.caption}` : "";
+    const agentContext = `\n\n[System: File path for agent access: ${storedPath}]`;
+    const fileMessage = `${attachmentTag}${captionText}${agentContext}${transcriptionInstruction}`;
 
     const chatId = ctx.chat?.id;
     if (chatId) {
