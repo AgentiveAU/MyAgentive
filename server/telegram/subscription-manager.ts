@@ -2,8 +2,11 @@ import { Bot, InputFile } from "grammy";
 import { sessionManager } from "../core/session-manager.js";
 import type { OutgoingWSMessage } from "../types.js";
 import { convertToTelegramMarkdown } from "./markdown-converter.js";
-import { detectMediaInMessage, type DetectedMedia } from "../utils/media-detector.js";
+import { detectMediaInMessage, validateMediaPath, type DetectedMedia } from "../utils/media-detector.js";
 import { config } from "../config.js";
+
+// Attachment tag format from web uploads
+const ATTACHMENT_PATTERN = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
 
 // Telegram message length limit
 const MAX_MESSAGE_LENGTH = 4096;
@@ -134,10 +137,7 @@ class TelegramSubscriptionManager {
         case "user_message":
           // Message from another source (web) - show it in Telegram
           if (message.source !== "telegram") {
-            await this.sendNewMessage(
-              chatId,
-              `[Web] ${message.content}`
-            );
+            await this.sendWebUserMessage(chatId, message.content);
           }
           break;
 
@@ -206,6 +206,53 @@ class TelegramSubscriptionManager {
       }
     } catch (error) {
       console.error(`Error handling message for Telegram user ${chatId}:`, error);
+    }
+  }
+
+  // Handle a user message from web, parsing any attachment tags into native Telegram media
+  private async sendWebUserMessage(chatId: number, content: string): Promise<void> {
+    const match = content.match(ATTACHMENT_PATTERN);
+
+    if (match) {
+      const [fullMatch, fileType, webUrl, filename] = match;
+      const userText = content.replace(fullMatch, "").trim();
+
+      // Resolve the web URL to a file path on disk
+      // webUrl format: /api/media/photos/uuid.jpg → relative: photos/uuid.jpg
+      const relativePath = webUrl.replace(/^\/api\/media\//, "");
+      const fullPath = validateMediaPath(relativePath, config.mediaPath);
+
+      if (fullPath) {
+        // Map the attachment type to DetectedMedia type
+        const typeMap: Record<string, DetectedMedia["type"]> = {
+          photo: "image",
+          video: "video",
+          audio: "audio",
+          voice: "voice",
+          document: "document",
+        };
+
+        const media: DetectedMedia = {
+          type: typeMap[fileType] || "document",
+          path: fullPath,
+          filename: filename.trim(),
+          relativePath,
+          webUrl,
+          size: 0,
+        };
+
+        // Send a label so the user knows it's from web
+        const caption = userText ? `[Web] ${userText}` : "[Web] Sent a file";
+        await this.sendNewMessage(chatId, caption);
+        await this.sendMediaFile(chatId, media);
+      } else {
+        // File not found on disk, send as text fallback
+        const displayText = userText || `Sent a ${fileType}: ${filename.trim()}`;
+        await this.sendNewMessage(chatId, `[Web] ${displayText}`);
+      }
+    } else {
+      // No attachment, send as plain text
+      await this.sendNewMessage(chatId, `[Web] ${content}`);
     }
   }
 

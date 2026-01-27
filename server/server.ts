@@ -22,7 +22,11 @@ import {
   validateMediaPath,
   getMimeType,
   MAX_MEDIA_SIZE,
+  getFileTypeFromMime,
+  getExtensionFromMime,
+  ensureMediaDirs,
 } from "./utils/media-detector.js";
+import { getDatabase } from "./db/database.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,7 +74,13 @@ const staticDir = getStaticDir();
 // Express app
 const app = express();
 app.use(cors({ credentials: true, origin: true }));
-app.use(express.json());
+// Skip JSON parsing for upload endpoint (handled manually for multipart)
+app.use((req, res, next) => {
+  if (req.path === "/api/upload") {
+    return next();
+  }
+  express.json()(req, res, next);
+});
 app.use(cookieParser());
 
 // Serve static files
@@ -199,6 +209,7 @@ app.get("/api/sessions/:name/messages", authMiddleware, (req, res) => {
 
 // Media file serving endpoint (authenticated)
 // Security: validates path is within media directory, checks file size
+// Supports HTTP Range requests for proper audio/video streaming
 app.get("/api/media/*", authMiddleware, (req, res) => {
   const relativePath = req.params[0];
 
@@ -215,14 +226,158 @@ app.get("/api/media/*", authMiddleware, (req, res) => {
     return res.status(413).json({ error: "File too large" });
   }
 
-  // Set appropriate content type
   const mimeType = getMimeType(fullPath);
-  res.setHeader("Content-Type", mimeType);
-  res.setHeader("Content-Length", stats.size);
+  const fileSize = stats.size;
 
-  // Stream the file
-  const stream = fs.createReadStream(fullPath);
-  stream.pipe(res);
+  // Handle Range requests for proper streaming
+  const range = req.headers.range;
+
+  if (range) {
+    // Parse Range header (e.g., "bytes=0-1024")
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    // Validate range (including NaN from malformed headers)
+    if (isNaN(start) || isNaN(end) || start < 0 || start >= fileSize || end >= fileSize || start > end) {
+      res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+      return res.end();
+    }
+
+    const chunkSize = end - start + 1;
+
+    res.status(206);
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", chunkSize);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const stream = fs.createReadStream(fullPath, { start, end });
+    stream.on("error", (err) => {
+      console.error("[Media] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
+  } else {
+    // No Range header - serve entire file
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", fileSize);
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const stream = fs.createReadStream(fullPath);
+    stream.on("error", (err) => {
+      console.error("[Media] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
+  }
+});
+
+// File upload endpoint (authenticated)
+// Accepts multipart form data with 'file' field and optional 'sessionName'
+app.post("/api/upload", authMiddleware, async (req, res) => {
+  try {
+    // Parse multipart form data using Bun's native Request API
+    const contentType = req.headers["content-type"] || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return res.status(400).json({ error: "Expected multipart/form-data" });
+    }
+
+    // Collect request body chunks
+    const chunks: Uint8Array[] = [];
+    await new Promise<void>((resolve, reject) => {
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => resolve());
+      req.on("error", reject);
+    });
+    const body = Buffer.concat(chunks);
+
+    // Create a Request object for Bun's FormData parser
+    const request = new Request("http://localhost/upload", {
+      method: "POST",
+      headers: { "content-type": contentType },
+      body: body,
+    });
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    const sessionName = formData.get("sessionName") as string | null;
+
+    if (!file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+
+    // Check file size
+    if (file.size > MAX_MEDIA_SIZE) {
+      return res.status(413).json({ error: "File too large (max 50MB)" });
+    }
+
+    // Ensure media directories exist
+    ensureMediaDirs(config.mediaPath);
+
+    // Determine file type and subdirectory
+    const mimeType = file.type || "application/octet-stream";
+    const { fileType, subDir } = getFileTypeFromMime(mimeType);
+
+    // Generate filename with UUID to prevent collisions
+    const originalFilename = file.name || "upload";
+    const ext = path.extname(originalFilename) || getExtensionFromMime(mimeType);
+    const storedFilename = `${uuidv4()}${ext}`;
+    const storedPath = path.join(config.mediaPath, subDir, storedFilename);
+
+    // Save file to disk
+    const buffer = Buffer.from(await file.arrayBuffer());
+    fs.writeFileSync(storedPath, buffer);
+
+    // Get session info if sessionName provided
+    let sessionId: string | null = null;
+    if (sessionName) {
+      const sessions = sessionManager.listSessions();
+      const session = sessions.find((s) => s.name === sessionName);
+      sessionId = session?.id || null;
+    }
+
+    // Store in database
+    const db = getDatabase();
+    const id = uuidv4();
+    const now = new Date().toISOString();
+
+    db.prepare(
+      `INSERT INTO media_files (id, session_id, file_type, original_filename, stored_path, mime_type, file_size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      sessionId,
+      fileType,
+      originalFilename,
+      storedPath,
+      mimeType,
+      file.size,
+      now
+    );
+
+    // Return file info
+    res.status(201).json({
+      id,
+      fileType,
+      originalFilename,
+      storedPath,
+      mimeType,
+      size: file.size,
+      webUrl: `/api/media/${subDir}/${storedFilename}`,
+    });
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    res.status(500).json({ error: "Failed to upload file" });
+  }
 });
 
 // Legacy API endpoints for compatibility

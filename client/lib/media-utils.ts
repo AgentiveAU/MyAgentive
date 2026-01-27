@@ -39,6 +39,96 @@ const EXTENSION_TO_TYPE: Record<string, MediaType> = {
 };
 
 /**
+ * Parse uploaded file info from user message content.
+ * Matches the attachment tag format: [[ATTACHMENT|||type:photo|||url:/api/media/photos/uuid.jpg|||name:filename.jpg]]
+ * Returns the media info and the remaining user text (if any).
+ */
+export function parseUploadedFile(content: string): { media: DetectedMedia | null; userText: string } {
+  // Pattern: [[ATTACHMENT|||type:photo|||url:/api/media/...|||name:filename.jpg]]
+  // Uses ||| as delimiter to avoid conflicts with [] in filenames
+  const uploadPattern = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
+  const match = content.match(uploadPattern);
+
+  if (!match) {
+    // Try legacy format: [Attached: type:photo, url:/api/media/..., name:filename.jpg]
+    const legacyPattern = /\[Attached:\s*type:(\w+),\s*url:([^,\s\]]+),\s*name:([^\]]*)\]/;
+    const legacyMatch = content.match(legacyPattern);
+    if (legacyMatch) {
+      const [fullMatch, fileType, webUrl, rawFilename] = legacyMatch;
+      const userText = content.replace(fullMatch, "").trim();
+      let filename = rawFilename.trim().replace(/[\[\]]+/g, "");
+      if (!filename || filename.startsWith(".")) {
+        const urlParts = webUrl.split("/");
+        filename = urlParts[urlParts.length - 1] || "file";
+      }
+      return {
+        media: { type: mapFileType(fileType), filename, webUrl },
+        userText,
+      };
+    }
+
+    // Try old Telegram format: [System: User uploaded a photo file. Path: /abs/path, Caption: text]
+    const telegramLegacy = /\[System:\s*User uploaded a (\w+) file\.\s*Path:\s*([^,\]]+)(?:,\s*Original name:\s*([^,\]]+))?(?:,\s*Caption:\s*([^\]]*))?\]/;
+    const telegramMatch = content.match(telegramLegacy);
+    if (telegramMatch) {
+      const [fullMatch, fileType, absPath, origName, caption] = telegramMatch;
+      // Extract relative path from absolute: .../media/photos/uuid.jpg → photos/uuid.jpg
+      const mediaIndex = absPath.indexOf("/media/");
+      const relativePath = mediaIndex !== -1 ? absPath.substring(mediaIndex + "/media/".length) : "";
+      const webUrl = relativePath ? `/api/media/${relativePath}` : "";
+      const pathFilename = absPath.split("/").pop() || "file";
+      const filename = origName?.trim() || pathFilename;
+      const userText = caption?.trim() || "";
+
+      if (webUrl) {
+        return {
+          media: { type: mapFileType(fileType), filename, webUrl },
+          userText,
+        };
+      }
+    }
+
+    return { media: null, userText: content };
+  }
+
+  const [fullMatch, fileType, webUrl, rawFilename] = match;
+
+  // Extract user text (everything except the attachment tag)
+  let userText = content.replace(fullMatch, "").trim();
+
+  // Strip system instructions not meant for display
+  // e.g. [System: File path for agent access: ...] and [This is a voice message...]
+  userText = userText
+    .replace(/\[System:[^\]]*\]/g, "")
+    .replace(/\[This is a voice message[^\]]*\]/g, "")
+    .replace(/\[Voice message recorded[^\]]*\]/g, "")
+    .trim();
+
+  // Clean filename
+  const filename = rawFilename.trim();
+
+  return {
+    media: { type: mapFileType(fileType), filename, webUrl },
+    userText,
+  };
+}
+
+// Helper to map file type string to MediaType
+function mapFileType(fileType: string): MediaType {
+  switch (fileType) {
+    case "photo":
+      return "image";
+    case "video":
+      return "video";
+    case "audio":
+    case "voice":
+      return "audio";
+    default:
+      return "document";
+  }
+}
+
+/**
  * Detect media file paths in message content.
  * Supports both absolute paths (containing /media/) and relative paths (starting with media/).
  */
@@ -48,7 +138,8 @@ export function detectMediaPaths(content: string): DetectedMedia[] {
 
   // Pattern 1: Absolute paths containing /media/
   // Matches: /home/user/.myagentive/media/audio/file.mp3
-  const absolutePathRegex = /\/[^\s]+\/media\/([^\s]+\.[a-zA-Z0-9]+)/g;
+  // Excludes brackets and other special chars that might trail the path
+  const absolutePathRegex = /\/[^\s\[\]]+\/media\/([^\s\[\]]+\.[a-zA-Z0-9]+)/g;
 
   // Pattern 2: Relative paths starting with "media/"
   // Matches: media/audio/file.mp3 or ./media/audio/file.mp3
@@ -64,7 +155,9 @@ export function detectMediaPaths(content: string): DetectedMedia[] {
     seenUrls.add(webUrl);
 
     const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
-    const filename = relativePath.split("/").pop() || relativePath;
+    const rawFilename = relativePath.split("/").pop() || relativePath;
+    // Clean filename - remove any trailing brackets or special chars
+    const filename = rawFilename.replace(/[\[\]]+$/, "");
     const type = EXTENSION_TO_TYPE[ext] || "document";
 
     detected.push({ type, filename, webUrl });
@@ -80,7 +173,9 @@ export function detectMediaPaths(content: string): DetectedMedia[] {
     seenUrls.add(webUrl);
 
     const ext = relativePath.substring(relativePath.lastIndexOf(".")).toLowerCase();
-    const filename = relativePath.split("/").pop() || relativePath;
+    const rawFilename = relativePath.split("/").pop() || relativePath;
+    // Clean filename - remove any trailing brackets or special chars
+    const filename = rawFilename.replace(/[\[\]]+$/, "");
     const type = EXTENSION_TO_TYPE[ext] || "document";
 
     detected.push({ type, filename, webUrl });

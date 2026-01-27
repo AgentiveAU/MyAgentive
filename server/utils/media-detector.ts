@@ -204,6 +204,65 @@ export function validateMediaPath(
 }
 
 /**
+ * Get file type and subdirectory from MIME type
+ */
+export function getFileTypeFromMime(mimeType: string): { fileType: string; subDir: string } {
+  if (mimeType.startsWith("image/")) {
+    return { fileType: "photo", subDir: "photos" };
+  } else if (mimeType.startsWith("video/")) {
+    return { fileType: "video", subDir: "videos" };
+  } else if (mimeType.startsWith("audio/")) {
+    // Voice message formats (Telegram OGG and browser WebM recordings)
+    if (mimeType === "audio/ogg" || mimeType === "audio/oga" || mimeType === "audio/webm") {
+      return { fileType: "voice", subDir: "voice" };
+    }
+    return { fileType: "audio", subDir: "audio" };
+  } else {
+    return { fileType: "document", subDir: "documents" };
+  }
+}
+
+/**
+ * Get file extension from MIME type
+ */
+export function getExtensionFromMime(mimeType: string): string {
+  const mimeToExt: Record<string, string> = {
+    "audio/ogg": ".ogg",
+    "audio/webm": ".webm",
+    "audio/mpeg": ".mp3",
+    "audio/mp4": ".m4a",
+    "audio/wav": ".wav",
+    "audio/aac": ".aac",
+    "audio/flac": ".flac",
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "application/pdf": ".pdf",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+  };
+
+  return mimeToExt[mimeType] || "";
+}
+
+/**
+ * Ensure media directories exist
+ */
+export function ensureMediaDirs(mediaBasePath: string): void {
+  const dirs = ["voice", "audio", "documents", "videos", "photos"];
+  for (const dir of dirs) {
+    const fullPath = path.join(mediaBasePath, dir);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+    }
+  }
+}
+
+/**
  * Get MIME type for a file extension
  */
 export function getMimeType(filename: string): string {
