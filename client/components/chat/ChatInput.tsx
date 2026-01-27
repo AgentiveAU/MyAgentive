@@ -187,7 +187,8 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    // Enter alone sends message, Ctrl+Enter or Shift+Enter adds new line
+    if (e.key === "Enter" && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
     }
@@ -556,7 +557,7 @@ export function ChatInput({
         </Button>
       </form>
       <p className="text-xs text-muted-foreground mt-2">
-        Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to send
+        Press Enter to send, {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter for new line
         {" · "}
         <span className="opacity-70">📎 Attach files · 🎤 Voice message</span>
       </p>
