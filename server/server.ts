@@ -88,8 +88,72 @@ app.use("/assets", express.static(path.join(staticDir, "assets")));
 app.use("/client", express.static(staticDir));
 
 // Health check (no auth required)
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get("/health", async (req, res) => {
+  const health: any = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    components: {},
+  };
+
+  // Check database connectivity
+  try {
+    const db = getDatabase();
+    db.prepare("SELECT 1").get();
+    health.components.database = { status: "ok" };
+  } catch (error) {
+    health.status = "degraded";
+    health.components.database = {
+      status: "error",
+      error: (error as Error).message
+    };
+  }
+
+  // Check Telegram bot (only if configured)
+  if (config.telegramBotToken) {
+    try {
+      const { bot } = await import("./telegram/bot.js");
+      const me = await bot.api.getMe();
+      health.components.telegram = {
+        status: "ok",
+        botUsername: me.username
+      };
+    } catch (error) {
+      health.status = "degraded";
+      health.components.telegram = {
+        status: "error",
+        error: (error as Error).message
+      };
+    }
+  } else {
+    health.components.telegram = { status: "not_configured" };
+  }
+
+  // Sessions count
+  try {
+    const allSessions = sessionManager.listSessions();
+    health.components.sessions = {
+      status: "ok",
+      total: allSessions.length,
+    };
+  } catch (error) {
+    health.components.sessions = {
+      status: "error",
+      error: (error as Error).message
+    };
+  }
+
+  // Memory usage
+  const mem = process.memoryUsage();
+  health.components.memory = {
+    status: "ok",
+    heapUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
+    heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+    rssMB: Math.round(mem.rss / 1024 / 1024),
+  };
+
+  // Set HTTP status based on overall health
+  const statusCode = health.status === "ok" ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 // Auth endpoints
