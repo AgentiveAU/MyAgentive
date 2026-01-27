@@ -61,6 +61,15 @@ export function deleteToken(token: string): void {
   db.prepare("DELETE FROM auth_tokens WHERE id = ?").run(token);
 }
 
+// Delete expired auth tokens from the database
+export function cleanupExpiredTokens(): number {
+  const db = getDatabase();
+  const result = db
+    .prepare("DELETE FROM auth_tokens WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')")
+    .run();
+  return result.changes;
+}
+
 // Verify password
 export function verifyPassword(password: string): boolean {
   return password === config.webPassword;
