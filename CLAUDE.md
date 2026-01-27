@@ -100,6 +100,14 @@ Optional:
 - `TELEGRAM_MONITORING_GROUP_ID` - For activity logging
 - `PORT` - Server port (default: 3847)
 
+## Branching and Releases
+
+- **Never push directly to `main`.** Always use feature branches and PRs.
+- Two release channels: **stable** (`main`) and **testing** (`next`).
+- Feature branches merge into `next` for testing, then `next` merges into `main` for stable release.
+- Testing releases use prerelease versions (e.g., `v0.7.0-beta.1`) with `gh release create --prerelease`.
+- See `docs/RELEASE.md` for the full release process.
+
 ## Style Notes
 
 - Use Australian English spelling
