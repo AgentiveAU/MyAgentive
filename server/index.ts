@@ -46,12 +46,13 @@ async function bootstrap(): Promise<void> {
   } = await import("./telegram/monitoring.js");
   const { cleanupExpiredTokens } = await import("./auth/middleware.js");
 
-  console.log(`Starting MyAgentive v${APP_VERSION}...`);
-  console.log(`Environment: ${config.nodeEnv}`);
-  console.log(`Domain: ${config.domain}`);
+  const logPrefix = config.agentId ? `[${config.agentId}] ` : "";
+  console.log(`${logPrefix}Starting MyAgentive v${APP_VERSION}...`);
+  console.log(`${logPrefix}Environment: ${config.nodeEnv}`);
+  console.log(`${logPrefix}Domain: ${config.domain}`);
 
   // Run database migrations
-  console.log("Running database migrations...");
+  console.log(`${logPrefix}Running database migrations...`);
   runMigrations();
 
   // Set up activity monitoring
@@ -71,16 +72,16 @@ async function bootstrap(): Promise<void> {
   const tokenCleanupInterval = setInterval(() => {
     const deleted = cleanupExpiredTokens();
     if (deleted > 0) {
-      console.log(`Cleaned up ${deleted} expired auth token(s)`);
+      console.log(`${logPrefix}Cleaned up ${deleted} expired auth token(s)`);
     }
   }, 60 * 60 * 1000);
 
-  console.log("MyAgentive is ready!");
-  console.log(`Web interface: http://localhost:${config.port}`);
+  console.log(`${logPrefix}MyAgentive is ready!`);
+  console.log(`${logPrefix}Web interface: http://localhost:${config.port}`);
 
   // Graceful shutdown
   async function shutdown() {
-    console.log("\nShutting down...");
+    console.log(`\n${logPrefix}Shutting down...`);
 
     try {
       await sendShutdownMessage();
@@ -93,7 +94,7 @@ async function bootstrap(): Promise<void> {
     await stopServer();
     closeDatabase();
 
-    console.log("Shutdown complete");
+    console.log(`${logPrefix}Shutdown complete`);
     process.exit(0);
   }
 

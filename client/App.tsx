@@ -57,7 +57,7 @@ function getWSUrl(token: string | null): string {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading: authLoading, checkAuth, logout } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, checkAuth, logout, agentId } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [archivedSessions, setArchivedSessions] = useState<Session[]>([]);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
@@ -360,6 +360,11 @@ export default function App() {
     });
   };
 
+  // Set browser tab title with agent ID
+  useEffect(() => {
+    document.title = agentId ? `MyAgentive · ${agentId}` : "MyAgentive";
+  }, [agentId]);
+
   // Initial fetch when authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -420,7 +425,7 @@ export default function App() {
 
   // Show login if not authenticated
   if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />;
+    return <LoginForm onLogin={handleLogin} agentId={agentId} />;
   }
 
   const selectedChatId = sessions.find((s) => s.name === currentSessionName)?.id || null;
@@ -440,6 +445,7 @@ export default function App() {
         onUnarchiveSession={unarchiveSession}
         onDeleteSession={deleteSession}
         onLogout={handleLogout}
+        agentId={agentId}
       >
         <ChatWindow
           chatId={selectedChatId}

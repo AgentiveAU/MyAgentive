@@ -36,6 +36,7 @@ interface SidebarProps {
   onUnarchiveSession: (name: string) => void;
   onDeleteSession: (name: string) => void;
   onLogout: () => void;
+  agentId?: string | null;
   // Desktop collapse control
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -53,6 +54,7 @@ export function Sidebar({
   onUnarchiveSession,
   onDeleteSession,
   onLogout,
+  agentId,
   isCollapsed,
   onToggleCollapse,
 }: SidebarProps) {
@@ -109,7 +111,12 @@ export function Sidebar({
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           )}
-          <span className="text-sm font-semibold truncate">MyAgentive</span>
+          <span
+            className="text-sm font-semibold truncate"
+            title={agentId ? `MyAgentive · ${agentId}` : undefined}
+          >
+            MyAgentive{agentId ? ` · ${agentId}` : ""}
+          </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button
