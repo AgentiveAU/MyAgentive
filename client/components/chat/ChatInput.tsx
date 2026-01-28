@@ -164,10 +164,12 @@ export function ChatInput({
           // Create attachment tag (parsed by media-utils.ts for display)
           // Use ||| as delimiter to avoid conflicts with [] in filenames
           const attachmentTag = `[[ATTACHMENT|||type:${result.fileType}|||url:${result.webUrl}|||name:${result.originalFilename}]]`;
+          // Include disk path so the AI agent can access the file
+          const agentContext = `\n\n[System: File path for agent access: ${result.storedPath}]`;
           // Prepend to user's message
           messageContent = messageContent
-            ? `${attachmentTag}\n\n${messageContent}`
-            : attachmentTag;
+            ? `${attachmentTag}${agentContext}\n\n${messageContent}`
+            : `${attachmentTag}${agentContext}`;
         }
         clearSelectedFile();
       }
@@ -349,8 +351,9 @@ export function ChatInput({
       const result = await uploadFile(file);
       if (result) {
         const attachmentTag = `[[ATTACHMENT|||type:voice|||url:${result.webUrl}|||name:${result.originalFilename}]]`;
+        const agentContext = `\n\n[System: File path for agent access: ${result.storedPath}]`;
         // Add instruction for AI to transcribe the voice message
-        const message = `${attachmentTag}\n\n[Voice message recorded - please listen and respond to what I said]`;
+        const message = `${attachmentTag}${agentContext}\n\n[Voice message recorded - please listen and respond to what I said]`;
         onSend(message);
       }
 
