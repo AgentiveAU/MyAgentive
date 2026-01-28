@@ -11,12 +11,13 @@ usage() {
     echo "Usage: myagentivectl <command>"
     echo ""
     echo "Commands:"
-    echo "  start     Start MyAgentive in the background"
-    echo "  stop      Stop the running MyAgentive service"
-    echo "  restart   Restart MyAgentive"
-    echo "  status    Check if MyAgentive is running"
-    echo "  logs      Show recent logs (follow mode)"
-    echo "  config    Edit configuration file"
+    echo "  start        Start MyAgentive in the background"
+    echo "  stop         Stop the running MyAgentive service"
+    echo "  restart      Restart MyAgentive"
+    echo "  status       Check if MyAgentive is running"
+    echo "  logs         Show recent logs (follow mode)"
+    echo "  config       Edit configuration file"
+    echo "  set-agent-id Set or change the Agent ID shown in Web UI"
 }
 
 get_pid() {
@@ -109,6 +110,59 @@ config() {
     ${EDITOR:-nano} "$CONFIG_FILE"
 }
 
+set_agent_id() {
+    local CONFIG_FILE="$INSTALL_DIR/config"
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Config file not found. Run 'myagentive' first to create it."
+        exit 1
+    fi
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Set Agent ID"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "The Agent ID is shown in the Web UI header and login page."
+    echo "Examples: AG001, LAPTOP, WORK, DEV"
+    echo ""
+
+    # Check current value
+    local current_id=$(grep "^AGENT_ID=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2)
+    if [ -n "$current_id" ]; then
+        echo "Current Agent ID: $current_id"
+    else
+        echo "Current Agent ID: (not set)"
+    fi
+    echo ""
+
+    read -p "Enter new Agent ID (or leave empty to remove): " new_id
+
+    # Remove any existing AGENT_ID line
+    sed -i.bak '/^AGENT_ID=/d' "$CONFIG_FILE"
+    sed -i.bak '/^# AGENT_ID=/d' "$CONFIG_FILE"
+
+    # Add new value or comment if empty
+    if [ -n "$new_id" ]; then
+        # Add after NODE_ENV line
+        sed -i.bak "/^NODE_ENV=/a\\
+AGENT_ID=$new_id" "$CONFIG_FILE"
+        echo ""
+        echo "✓ Agent ID set to: $new_id"
+    else
+        # Add commented line
+        sed -i.bak "/^NODE_ENV=/a\\
+# AGENT_ID=  # Uncomment and set to show an identifier in the Web UI" "$CONFIG_FILE"
+        echo ""
+        echo "✓ Agent ID removed"
+    fi
+
+    rm -f "$CONFIG_FILE.bak"
+    echo ""
+    echo "Restart MyAgentive to apply changes:"
+    echo "  myagentivectl restart"
+    echo ""
+}
+
 case "$1" in
     start)
         start
@@ -128,6 +182,9 @@ case "$1" in
         ;;
     config)
         config
+        ;;
+    set-agent-id)
+        set_agent_id
         ;;
     *)
         usage

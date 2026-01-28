@@ -153,9 +153,31 @@ export async function runSetupWizard(): Promise<void> {
   }
   console.log("");
 
-  // Step 5: Port
+  // Step 5: Agent ID (Optional)
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("STEP 5: Server Port");
+  console.log("STEP 5: Agent ID (Optional)");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("");
+  console.log("Give your agent a unique identifier (e.g., AG001, LAPTOP, WORK).");
+  console.log("This ID will appear in the web UI to help you identify which");
+  console.log("instance you're connected to when running multiple agents.");
+  console.log("Press Enter to skip (no ID will be shown).");
+  console.log("");
+
+  const agentId = await question(
+    rl,
+    "Agent ID (or press Enter to skip): "
+  );
+  if (agentId) {
+    console.log(`✓ Agent ID set to: ${agentId}`);
+  } else {
+    console.log("✓ Skipped agent ID");
+  }
+  console.log("");
+
+  // Step 6: Port
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("STEP 6: Server Port");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("");
 
@@ -177,6 +199,9 @@ export async function runSetupWizard(): Promise<void> {
 # Server
 PORT=${port}
 NODE_ENV=production
+
+# Agent Identity (optional - shown in Web UI)
+${agentId ? `AGENT_ID=${agentId}` : "# AGENT_ID=  # Uncomment and set to show an identifier in the Web UI"}
 
 # Authentication
 WEB_PASSWORD=${webPassword}
