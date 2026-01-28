@@ -64,6 +64,9 @@ export const config = {
   // Media - resolve to absolute path so agent can find uploaded files
   mediaPath: resolvePath(optional("MEDIA_PATH", "./media")),
 
+  // Agent identification (shown in web UI to distinguish instances)
+  agentId: optional("AGENT_ID", ""),
+
   // Derived
   isDev: optional("NODE_ENV", "development") === "development",
   isProd: optional("NODE_ENV", "development") === "production",

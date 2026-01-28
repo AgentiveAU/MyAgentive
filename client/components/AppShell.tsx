@@ -31,6 +31,7 @@ interface AppShellProps {
   onUnarchiveSession: (name: string) => void;
   onDeleteSession: (name: string) => void;
   onLogout: () => void;
+  agentId?: string | null;
 }
 
 export function AppShell({
@@ -47,6 +48,7 @@ export function AppShell({
   onUnarchiveSession,
   onDeleteSession,
   onLogout,
+  agentId,
 }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sheet
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Desktop collapse
@@ -103,6 +105,7 @@ export function AppShell({
     onUnarchiveSession,
     onDeleteSession,
     onLogout,
+    agentId,
     // Pass collapse control to sidebar
     isCollapsed: sidebarCollapsed,
     onToggleCollapse: () => setSidebarCollapsed(!sidebarCollapsed),

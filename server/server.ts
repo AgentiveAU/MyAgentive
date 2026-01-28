@@ -92,6 +92,7 @@ app.get("/health", async (req, res) => {
   const health: any = {
     status: "ok",
     timestamp: new Date().toISOString(),
+    ...(config.agentId && { agentId: config.agentId }),
     components: {},
   };
 
@@ -189,9 +190,9 @@ app.post("/api/auth/logout", (req, res) => {
 
 app.get("/api/auth/verify", optionalAuthMiddleware, (req, res) => {
   if (req.userId) {
-    res.json({ authenticated: true, authType: req.authType });
+    res.json({ authenticated: true, authType: req.authType, agentId: config.agentId || undefined });
   } else {
-    res.json({ authenticated: false });
+    res.json({ authenticated: false, agentId: config.agentId || undefined });
   }
 });
 
