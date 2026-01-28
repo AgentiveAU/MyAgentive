@@ -67,6 +67,9 @@ export const config = {
   // Agent identification (shown in web UI to distinguish instances)
   agentId: optional("AGENT_ID", ""),
 
+  // Deepgram (for voice transcription)
+  deepgramApiKey: optional("DEEPGRAM_API_KEY", ""),
+
   // Derived
   isDev: optional("NODE_ENV", "development") === "development",
   isProd: optional("NODE_ENV", "development") === "production",

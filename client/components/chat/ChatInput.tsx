@@ -127,7 +127,7 @@ export function ChatInput({
     setSelectedFile(null);
   };
 
-  const uploadFile = async (file: File): Promise<{ storedPath: string; fileType: string; originalFilename: string; webUrl: string } | null> => {
+  const uploadFile = async (file: File): Promise<{ storedPath: string; fileType: string; originalFilename: string; webUrl: string; transcription?: string; transcriptionError?: string } | null> => {
     const formData = new FormData();
     formData.append("file", file);
     if (sessionName) {
@@ -352,8 +352,16 @@ export function ChatInput({
       if (result) {
         const attachmentTag = `[[ATTACHMENT|||type:voice|||url:${result.webUrl}|||name:${result.originalFilename}]]`;
         const agentContext = `\n\n[System: File path for agent access: ${result.storedPath}]`;
-        // Add instruction for AI to transcribe the voice message
-        const message = `${attachmentTag}${agentContext}\n\n[Voice message recorded - please listen and respond to what I said]`;
+        // Use transcription if available, otherwise ask agent to listen
+        let transcriptionText: string;
+        if (result.transcription) {
+          transcriptionText = `\n\n[Voice message transcribed: "${result.transcription}"]\n\nPlease respond to what I said above.`;
+        } else if (result.transcriptionError) {
+          transcriptionText = `\n\n[Voice message recorded - transcription failed: ${result.transcriptionError}. Please listen and respond to what I said]`;
+        } else {
+          transcriptionText = "\n\n[Voice message recorded - please listen and respond to what I said]";
+        }
+        const message = `${attachmentTag}${agentContext}${transcriptionText}`;
         onSend(message);
       }
 
