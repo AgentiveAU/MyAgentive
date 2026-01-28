@@ -46,7 +46,7 @@ const EXTENSION_TO_TYPE: Record<string, MediaType> = {
 export function parseUploadedFile(content: string): { media: DetectedMedia | null; userText: string } {
   // Pattern: [[ATTACHMENT|||type:photo|||url:/api/media/...|||name:filename.jpg]]
   // Uses ||| as delimiter to avoid conflicts with [] in filenames
-  const uploadPattern = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
+  const uploadPattern = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:(.+?)\]\]/;
   const match = content.match(uploadPattern);
 
   if (!match) {
