@@ -176,7 +176,11 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
       }
 
       // Create placeholder for agent response
-      const placeholder = await ctx.reply("Processing file...");
+      // For transcribed voice, file is already processed - just waiting for AI response
+      const placeholderText = (fileType === "voice" && transcription)
+        ? "Thinking..."
+        : "Processing file...";
+      const placeholder = await ctx.reply(placeholderText);
       telegramSubscriptionManager.startActiveResponse(chatId, placeholder.message_id);
     }
 
