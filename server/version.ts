@@ -1,3 +1,3 @@
 // This file is auto-generated during build
 // DO NOT EDIT MANUALLY - it will be overwritten by build-release.sh
-export const APP_VERSION = "0.6.6-beta.1";
+export const APP_VERSION = "0.6.6";
