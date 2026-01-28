@@ -101,6 +101,13 @@ ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
 -- Index for filtering by archived status with ordering
 CREATE INDEX idx_sessions_archived ON sessions(archived, updated_at DESC);
 `,
+  "003-add-transcription.sql": `
+-- Add transcription column to media_files table
+ALTER TABLE media_files ADD COLUMN transcription TEXT;
+
+-- Index for finding transcribed files
+CREATE INDEX idx_media_transcription ON media_files(transcription) WHERE transcription IS NOT NULL;
+`,
 };
 
 export function getDatabase(): Database {
