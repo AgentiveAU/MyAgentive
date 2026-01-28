@@ -6,6 +6,7 @@ import { config } from "../../config.js";
 import { getDatabase } from "../../db/database.js";
 import { sessionManager } from "../../core/session-manager.js";
 import { telegramSubscriptionManager } from "../subscription-manager.js";
+import { transcribeVoiceFile } from "../../services/transcription.js";
 
 interface SessionData {
   currentSessionName: string;
@@ -97,6 +98,15 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     // Save to disk
     fs.writeFileSync(storedPath, buffer);
 
+    // Transcribe voice messages using Deepgram (if available)
+    let transcription: string | null = null;
+    let transcriptionError: string | null = null;
+    if (fileType === "voice") {
+      const result = await transcribeVoiceFile(storedPath, mimeType, buffer.length);
+      transcription = result.transcription;
+      transcriptionError = result.error;
+    }
+
     // Get session info
     const sessionName = ctx.session.currentSessionName;
     const sessions = sessionManager.listSessions();
@@ -108,8 +118,8 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     const now = new Date().toISOString();
 
     db.prepare(
-      `INSERT INTO media_files (id, session_id, telegram_file_id, file_type, original_filename, stored_path, mime_type, file_size, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO media_files (id, session_id, telegram_file_id, file_type, original_filename, stored_path, mime_type, file_size, transcription, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       session?.id || null,
@@ -119,6 +129,7 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
       storedPath,
       mimeType || null,
       buffer.length,
+      transcription,
       now
     );
 
@@ -126,8 +137,19 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     const displayName = originalFilename || storedFilename;
     const sizeKB = Math.round(buffer.length / 1024);
 
+    let transcriptionNote = "";
+    if (transcription) {
+      const preview = transcription.length > 100
+        ? transcription.substring(0, 100) + "..."
+        : transcription;
+      transcriptionNote = `\nTranscribed: "${preview}"`;
+    } else if (transcriptionError) {
+      transcriptionNote = `\nTranscription unavailable: ${transcriptionError}`;
+    } else if (fileType === "voice") {
+      transcriptionNote = "\nTranscription: not configured";
+    }
     await ctx.reply(
-      `✅ ${fileType} saved!\n\nFile: ${displayName}\nSize: ${sizeKB} KB\nPath: ${storedPath}\n\nThe agent can access this file.`
+      `${fileType} saved!\n\nFile: ${displayName}\nSize: ${sizeKB} KB${transcriptionNote}\n\nThe agent can access this file.`
     );
 
     // Build message for the agent about the file
@@ -135,14 +157,15 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     const webUrl = `/api/media/${subDir}/${storedFilename}`;
     const attachmentTag = `[[ATTACHMENT|||type:${fileType}|||url:${webUrl}|||name:${displayName}]]`;
 
-    // Only suggest transcription for voice messages (user speaking), not audio files (music, etc.)
-    // Don't force a specific tool - let the agent decide (Deepgram, Whisper, etc.)
-    const transcriptionInstruction = fileType === "voice"
-      ? "\n\n[This is a voice message from the user. Please transcribe it and respond to what they said.]"
+    // For voice messages: include transcription if available, otherwise ask agent to listen
+    const transcriptionText = fileType === "voice"
+      ? transcription
+        ? `\n\n[Voice message transcribed: "${transcription}"]\n\nPlease respond to what I said above.`
+        : "\n\n[Voice message recorded - please listen and respond to what I said]"
       : "";
     const captionText = message.caption ? `\n\n${message.caption}` : "";
     const agentContext = `\n\n[System: File path for agent access: ${storedPath}]`;
-    const fileMessage = `${attachmentTag}${captionText}${agentContext}${transcriptionInstruction}`;
+    const fileMessage = `${attachmentTag}${captionText}${agentContext}${transcriptionText}`;
 
     const chatId = ctx.chat?.id;
     if (chatId) {
@@ -153,7 +176,11 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
       }
 
       // Create placeholder for agent response
-      const placeholder = await ctx.reply("Processing file...");
+      // For transcribed voice, file is already processed - just waiting for AI response
+      const placeholderText = (fileType === "voice" && transcription)
+        ? "Thinking..."
+        : "Processing file...";
+      const placeholder = await ctx.reply(placeholderText);
       telegramSubscriptionManager.startActiveResponse(chatId, placeholder.message_id);
     }
 

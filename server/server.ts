@@ -27,6 +27,7 @@ import {
   ensureMediaDirs,
 } from "./utils/media-detector.js";
 import { getDatabase } from "./db/database.js";
+import { transcribeVoiceFile } from "./services/transcription.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -402,6 +403,15 @@ app.post("/api/upload", authMiddleware, async (req, res) => {
     const buffer = Buffer.from(await file.arrayBuffer());
     fs.writeFileSync(storedPath, buffer);
 
+    // Transcribe voice files using Deepgram (if available)
+    let transcription: string | null = null;
+    let transcriptionError: string | null = null;
+    if (fileType === "voice") {
+      const result = await transcribeVoiceFile(storedPath, mimeType, file.size);
+      transcription = result.transcription;
+      transcriptionError = result.error;
+    }
+
     // Get session info if sessionName provided
     let sessionId: string | null = null;
     if (sessionName) {
@@ -416,8 +426,8 @@ app.post("/api/upload", authMiddleware, async (req, res) => {
     const now = new Date().toISOString();
 
     db.prepare(
-      `INSERT INTO media_files (id, session_id, file_type, original_filename, stored_path, mime_type, file_size, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO media_files (id, session_id, file_type, original_filename, stored_path, mime_type, file_size, transcription, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       sessionId,
@@ -426,6 +436,7 @@ app.post("/api/upload", authMiddleware, async (req, res) => {
       storedPath,
       mimeType,
       file.size,
+      transcription,
       now
     );
 
@@ -438,6 +449,8 @@ app.post("/api/upload", authMiddleware, async (req, res) => {
       mimeType,
       size: file.size,
       webUrl: `/api/media/${subDir}/${storedFilename}`,
+      transcription,
+      transcriptionError,
     });
   } catch (error) {
     console.error("Error uploading file:", error);
