@@ -3,8 +3,15 @@ import * as path from "path";
 import * as readline from "readline";
 import * as crypto from "crypto";
 
-const CONFIG_DIR = path.join(process.env.HOME || "~", ".myagentive");
-const CONFIG_FILE = path.join(CONFIG_DIR, "config");
+// NOTE: These are functions to ensure environment variables are read at runtime,
+// not at compile time (important for compiled binaries)
+function getConfigDir(): string {
+  return path.join(process.env.HOME || "~", ".myagentive");
+}
+
+function getConfigFile(): string {
+  return path.join(getConfigDir(), "config");
+}
 
 function createInterface(): readline.Interface {
   return readline.createInterface({
@@ -30,11 +37,11 @@ function generatePassword(): string {
 }
 
 export function configExists(): boolean {
-  return fs.existsSync(CONFIG_FILE);
+  return fs.existsSync(getConfigFile());
 }
 
 export function getConfigPath(): string {
-  return CONFIG_FILE;
+  return getConfigFile();
 }
 
 export async function runSetupWizard(): Promise<void> {
@@ -53,11 +60,12 @@ export async function runSetupWizard(): Promise<void> {
   console.log("");
 
   // Create config directory
-  if (!fs.existsSync(CONFIG_DIR)) {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  const configDir = getConfigDir();
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
   }
-  fs.mkdirSync(path.join(CONFIG_DIR, "data"), { recursive: true });
-  fs.mkdirSync(path.join(CONFIG_DIR, "media"), { recursive: true });
+  fs.mkdirSync(path.join(configDir, "data"), { recursive: true });
+  fs.mkdirSync(path.join(configDir, "media"), { recursive: true });
 
   // Step 1: Telegram Bot Token
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -219,10 +227,10 @@ DATABASE_PATH=./data/myagentive.db
 MEDIA_PATH=./media
 `;
 
-  fs.writeFileSync(CONFIG_FILE, configContent);
+  fs.writeFileSync(getConfigFile(), configContent);
 
   // Copy default system prompt to user config directory
-  const systemPromptDest = path.join(CONFIG_DIR, "system_prompt.md");
+  const systemPromptDest = path.join(configDir, "system_prompt.md");
   const defaultPromptSrc = path.join(__dirname, "default-system-prompt.md");
 
   if (fs.existsSync(defaultPromptSrc)) {

@@ -71,10 +71,15 @@ You are responsible for managing API keys on behalf of the user. Always save new
 When users ask about MyAgentive itself (You) like what it is, how to configure it, troubleshooting, architecture, use "myagentive" skill to answer.`;
 
 // System prompt file paths
-const MYAGENTIVE_HOME =
-  process.env.MYAGENTIVE_HOME ||
-  path.join(process.env.HOME || "", ".myagentive");
-const SYSTEM_PROMPT_PATH = path.join(MYAGENTIVE_HOME, "system_prompt.md");
+// NOTE: These are functions to ensure environment variables are read at runtime,
+// not at compile time (important for compiled binaries)
+function getMyAgentiveHome(): string {
+  return process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+}
+
+function getSystemPromptPath(): string {
+  return path.join(getMyAgentiveHome(), "system_prompt.md");
+}
 
 function getDefaultPromptPath(): string {
   const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
@@ -87,11 +92,14 @@ function getDefaultPromptPath(): string {
 }
 
 function loadSystemPrompt(): string {
+  const systemPromptPath = getSystemPromptPath();
+  const myAgentiveHome = getMyAgentiveHome();
+
   // Try user's custom prompt first
-  if (fs.existsSync(SYSTEM_PROMPT_PATH)) {
+  if (fs.existsSync(systemPromptPath)) {
     try {
-      const customPrompt = fs.readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
-      console.log(`Loaded custom system prompt from: ${SYSTEM_PROMPT_PATH}`);
+      const customPrompt = fs.readFileSync(systemPromptPath, "utf-8");
+      console.log(`Loaded custom system prompt from: ${systemPromptPath}`);
       return customPrompt;
     } catch (error) {
       console.warn("Failed to read custom system prompt, using default");
@@ -111,9 +119,9 @@ function loadSystemPrompt(): string {
 
   // Copy default to user location for discoverability
   try {
-    if (fs.existsSync(MYAGENTIVE_HOME)) {
-      fs.writeFileSync(SYSTEM_PROMPT_PATH, defaultPrompt, "utf-8");
-      console.log(`Created customisable system prompt at: ${SYSTEM_PROMPT_PATH}`);
+    if (fs.existsSync(myAgentiveHome)) {
+      fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
+      console.log(`Created customisable system prompt at: ${systemPromptPath}`);
     }
   } catch (error) {
     console.warn("Could not create user system prompt file");
