@@ -4,6 +4,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   authType: string | null;
+  agentId: string | null;
 }
 
 export function useAuth() {
@@ -11,6 +12,7 @@ export function useAuth() {
     isAuthenticated: false,
     isLoading: true,
     authType: null,
+    agentId: null,
   });
 
   const checkAuth = useCallback(async () => {
@@ -24,12 +26,14 @@ export function useAuth() {
         isAuthenticated: data.authenticated,
         isLoading: false,
         authType: data.authType || null,
+        agentId: data.agentId || null,
       });
     } catch (error) {
       setAuthState({
         isAuthenticated: false,
         isLoading: false,
         authType: null,
+        agentId: null,
       });
     }
   }, []);
@@ -43,11 +47,12 @@ export function useAuth() {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    setAuthState({
+    setAuthState((prev) => ({
       isAuthenticated: false,
       isLoading: false,
       authType: null,
-    });
+      agentId: prev.agentId,
+    }));
   }, []);
 
   useEffect(() => {

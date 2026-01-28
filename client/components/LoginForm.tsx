@@ -2,9 +2,10 @@ import { useState } from "react";
 
 interface LoginFormProps {
   onLogin: (token: string) => void;
+  agentId?: string | null;
 }
 
-export function LoginForm({ onLogin }: LoginFormProps) {
+export function LoginForm({ onLogin, agentId }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +40,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-bold text-white mb-6 text-center">
-          MyAgentive
+          MyAgentive{agentId ? ` · ${agentId}` : ""}
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
