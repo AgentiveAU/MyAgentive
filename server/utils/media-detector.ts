@@ -213,7 +213,9 @@ export function getFileTypeFromMime(mimeType: string): { fileType: string; subDi
     return { fileType: "video", subDir: "videos" };
   } else if (mimeType.startsWith("audio/")) {
     // Voice message formats (Telegram OGG and browser WebM recordings)
-    if (mimeType === "audio/ogg" || mimeType === "audio/oga" || mimeType === "audio/webm") {
+    // Use startsWith to handle MIME types with codec parameters (e.g. "audio/webm;codecs=opus")
+    const baseMime = mimeType.split(";")[0];
+    if (baseMime === "audio/ogg" || baseMime === "audio/oga" || baseMime === "audio/webm") {
       return { fileType: "voice", subDir: "voice" };
     }
     return { fileType: "audio", subDir: "audio" };
@@ -226,6 +228,8 @@ export function getFileTypeFromMime(mimeType: string): { fileType: string; subDi
  * Get file extension from MIME type
  */
 export function getExtensionFromMime(mimeType: string): string {
+  // Strip parameters (e.g. "text/plain;charset=utf-8" → "text/plain")
+  const baseMime = mimeType.split(";")[0];
   const mimeToExt: Record<string, string> = {
     "audio/ogg": ".ogg",
     "audio/webm": ".webm",
@@ -246,7 +250,7 @@ export function getExtensionFromMime(mimeType: string): string {
     "text/csv": ".csv",
   };
 
-  return mimeToExt[mimeType] || "";
+  return mimeToExt[baseMime] || "";
 }
 
 /**
