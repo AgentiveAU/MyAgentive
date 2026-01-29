@@ -74,6 +74,26 @@ export const config = {
   // Deepgram (for voice transcription)
   deepgramApiKey: optional("DEEPGRAM_API_KEY", ""),
 
+  // Telegram enhancement features
+  telegramReactionAck: optional("TELEGRAM_REACTION_ACK", "true") === "true",
+  telegramFragmentBufferMs: parseInt(optional("TELEGRAM_FRAGMENT_BUFFER_MS", "500")),
+  telegramLinkPreview: optional("TELEGRAM_LINK_PREVIEW", "true") === "true",
+
+  // Group policy: "open" | "allowlist" | "disabled"
+  telegramGroupPolicy: optional("TELEGRAM_GROUP_POLICY", "allowlist") as
+    | "open"
+    | "allowlist"
+    | "disabled",
+  // Per-group policies (JSON): '{"123456789": "open", "-987654321": "disabled"}'
+  telegramGroupPolicies: (() => {
+    const raw = optional("TELEGRAM_GROUP_POLICIES", "{}");
+    try {
+      return JSON.parse(raw) as Record<string, "open" | "allowlist" | "disabled">;
+    } catch {
+      return {};
+    }
+  })(),
+
   // Derived
   isDev: optional("NODE_ENV", "development") === "development",
   isProd: optional("NODE_ENV", "development") === "production",

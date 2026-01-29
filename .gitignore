@@ -72,4 +72,4 @@ __pycache__/
 *_transcription.json
 
 # Serena
-.serena
+.serenacoverage/

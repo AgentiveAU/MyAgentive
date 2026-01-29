@@ -2,6 +2,7 @@ import type { Context } from "grammy";
 import { sessionManager } from "../../core/session-manager.js";
 import { telegramSubscriptionManager } from "../subscription-manager.js";
 import { getCurrentModel, setCurrentModel } from "../../core/ai-client.js";
+import { replyModeManager, parseReplyMode } from "../reply-mode.js";
 
 interface SessionData {
   currentSessionName: string;
@@ -33,6 +34,12 @@ export async function handleCommand(ctx: MyContext): Promise<void> {
       break;
     case "model":
       await handleModelCommand(ctx, args);
+      break;
+    case "replymode":
+      await handleReplyModeCommand(ctx, args);
+      break;
+    case "linkpreview":
+      await handleLinkPreviewCommand(ctx, args);
       break;
     default:
       await ctx.reply(`Unknown command: ${command}`);
@@ -184,5 +191,52 @@ Note: New sessions will use the new model. Existing sessions keep their model.`,
 
 New sessions will use ${model}. Use /new to start a fresh session with this model.`,
     { parse_mode: "Markdown" }
+  );
+}
+
+async function handleReplyModeCommand(ctx: MyContext, args: string[]): Promise<void> {
+  const currentMode = replyModeManager.getMode();
+
+  if (args.length === 0) {
+    // Show current mode
+    await ctx.reply(
+      `🔗 Reply mode: **${currentMode}**
+
+Modes:
+• **off** - No reply threading
+• **first** - Reply to first message only
+• **all** - Reply to each message
+
+Usage: /replymode <off|first|all>`,
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
+  const newMode = parseReplyMode(args[0]);
+
+  if (!newMode) {
+    await ctx.reply(`Invalid mode. Choose one of: off, first, all`);
+    return;
+  }
+
+  if (newMode === currentMode) {
+    await ctx.reply(`Reply mode is already **${currentMode}**`, { parse_mode: "Markdown" });
+    return;
+  }
+
+  replyModeManager.setMode(newMode);
+  await ctx.reply(`🔗 Reply mode changed to **${newMode}**`, { parse_mode: "Markdown" });
+}
+
+async function handleLinkPreviewCommand(ctx: MyContext, args: string[]): Promise<void> {
+  // This is a simple toggle - actual implementation would need config persistence
+  // For now, just show status message
+  await ctx.reply(
+    `🔗 Link preview settings
+
+Link preview in responses is controlled by the TELEGRAM_LINK_PREVIEW environment variable.
+
+Current setting: check your .env file`
   );
 }
