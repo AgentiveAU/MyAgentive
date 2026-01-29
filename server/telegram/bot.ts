@@ -255,12 +255,38 @@ bot.catch((err) => {
   // The error is logged and the bot continues running
 });
 
+// Register bot commands with Telegram's menu
+async function registerBotCommands(): Promise<void> {
+  const commands = [
+    { command: "new", description: "Create a new session" },
+    { command: "list", description: "List all sessions" },
+    { command: "session", description: "Switch to a named session" },
+    { command: "status", description: "Show current session info" },
+    { command: "menu", description: "Interactive command menu" },
+    { command: "model", description: "Show or change AI model" },
+    { command: "usage", description: "Show API usage" },
+    { command: "replymode", description: "Set reply threading mode" },
+    { command: "linkpreview", description: "Toggle link previews" },
+    { command: "help", description: "Show help message" },
+  ];
+
+  try {
+    await bot.api.setMyCommands(commands);
+    console.log("Telegram bot commands registered");
+  } catch (error) {
+    console.error("Failed to register bot commands:", error);
+  }
+}
+
 // Start function
 export async function startTelegramBot(): Promise<void> {
   console.log("Starting Telegram bot...");
 
   // Set bot instance on subscription manager for persistent subscriptions
   telegramSubscriptionManager.setBot(bot);
+
+  // Register commands with Telegram's menu button
+  await registerBotCommands();
 
   await bot.start({
     onStart: (botInfo) => {
