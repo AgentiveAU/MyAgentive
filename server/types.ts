@@ -115,6 +115,13 @@ export interface WSPongMessage {
   timestamp: number;
 }
 
+export interface WSFileDeliveryMessage {
+  type: "file_delivery";
+  filePath: string;
+  filename: string;
+  sessionName: string;
+}
+
 export type OutgoingWSMessage =
   | WSConnectedMessage
   | WSHistoryMessage
@@ -125,7 +132,8 @@ export type OutgoingWSMessage =
   | WSSessionSwitchedMessage
   | WSErrorMessage
   | WSSessionsListMessage
-  | WSPongMessage;
+  | WSPongMessage
+  | WSFileDeliveryMessage;
 
 // Activity event for monitoring
 export interface ActivityEvent {

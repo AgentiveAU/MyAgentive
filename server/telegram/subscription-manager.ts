@@ -1,8 +1,10 @@
+import fs from "fs";
+import path from "path";
 import { Bot, InputFile } from "grammy";
 import { sessionManager } from "../core/session-manager.js";
 import type { OutgoingWSMessage } from "../types.js";
 import { convertToTelegramMarkdown } from "./markdown-converter.js";
-import { detectMediaInMessage, validateMediaPath, type DetectedMedia } from "../utils/media-detector.js";
+import { validateMediaPath, type DetectedMedia } from "../utils/media-detector.js";
 import { config } from "../config.js";
 
 // Attachment tag format from web uploads
@@ -153,7 +155,7 @@ class TelegramSubscriptionManager {
               await this.updateActiveMessage(chatId, subscription.activeResponse.content);
             }
           } else {
-            // Message from agent triggered by another source - send as new formatted message
+            // Message from agent triggered by another source - send as new message
             await this.sendNewMessage(chatId, message.content, true);
           }
           break;
@@ -179,15 +181,17 @@ class TelegramSubscriptionManager {
             // Final update with markdown formatting
             if (subscription.activeResponse.content) {
               await this.updateActiveMessage(chatId, subscription.activeResponse.content, true);
-
-              // Auto-forward any media files referenced in the response
-              await this.sendDetectedMedia(chatId, subscription.activeResponse.content);
             } else {
               await this.updateActiveMessage(chatId, "Done (no text response)");
             }
 
             subscription.activeResponse = null;
           }
+          break;
+
+        case "file_delivery":
+          // Handle explicit file delivery from Write tool
+          await this.deliverFileToUser(chatId, message.filePath, message.filename);
           break;
 
         case "error":
@@ -323,12 +327,34 @@ class TelegramSubscriptionManager {
     }
   }
 
-  // Detect and send any media files referenced in a message
-  private async sendDetectedMedia(chatId: number, content: string): Promise<void> {
-    const mediaFiles = detectMediaInMessage(content, config.mediaPath);
+  // Deliver a file directly to the user (called from file_delivery event)
+  private async deliverFileToUser(chatId: number, filePath: string, filename: string): Promise<void> {
+    if (!this.bot) return;
 
-    for (const media of mediaFiles) {
-      await this.sendMediaFile(chatId, media);
+    if (!fs.existsSync(filePath)) {
+      console.error(`[Telegram] File not found for delivery: ${filePath}`);
+      return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const inputFile = new InputFile(filePath, filename);
+
+    try {
+      // Determine file type and send appropriately
+      if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+        await this.bot.api.sendPhoto(chatId, inputFile);
+      } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
+        await this.bot.api.sendVideo(chatId, inputFile);
+      } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
+        await this.bot.api.sendAudio(chatId, inputFile);
+      } else if ([".ogg", ".oga"].includes(ext)) {
+        await this.bot.api.sendVoice(chatId, inputFile);
+      } else {
+        await this.bot.api.sendDocument(chatId, inputFile);
+      }
+      console.log(`[Telegram] Delivered file: ${filename}`);
+    } catch (error) {
+      console.error(`[Telegram] Failed to deliver file:`, error);
     }
   }
 

@@ -1,4 +1,6 @@
 import { EventEmitter } from "events";
+import fs from "fs";
+import path from "path";
 import { AgentSession } from "./ai-client.js";
 import { sessionRepo } from "../db/repositories/session-repo.js";
 import { messageRepo } from "../db/repositories/message-repo.js";
@@ -10,6 +12,25 @@ import type {
   OutgoingWSMessage,
   ActivityEvent,
 } from "../types.js";
+
+// Recursively get all files in a directory
+function scanDirectory(dir: string): string[] {
+  const files: string[] = [];
+
+  if (!fs.existsSync(dir)) return files;
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...scanDirectory(fullPath));
+    } else if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
 
 // Options for listing sessions
 export interface ListSessionsOptions {
@@ -48,12 +69,32 @@ class ManagedSession {
   private subscribers: Map<string, ClientSubscription> = new Map();
   private isListening = false;
   private eventEmitter: EventEmitter;
+  private mediaSnapshotBeforeMessage: Set<string> = new Set();
 
   constructor(sessionId: string, sessionName: string, eventEmitter: EventEmitter) {
     this.sessionId = sessionId;
     this.sessionName = sessionName;
     this.eventEmitter = eventEmitter;
     this.agentSession = new AgentSession();
+  }
+
+  // Get the media directory path
+  private getMediaPath(): string {
+    return path.join(process.env.HOME || "", ".myagentive", "media");
+  }
+
+  // Take snapshot of current files in media/
+  private snapshotMediaDirectory(): void {
+    const mediaPath = this.getMediaPath();
+    const files = scanDirectory(mediaPath);
+    this.mediaSnapshotBeforeMessage = new Set(files);
+  }
+
+  // Find new files since snapshot
+  private findNewMediaFiles(): string[] {
+    const mediaPath = this.getMediaPath();
+    const currentFiles = scanDirectory(mediaPath);
+    return currentFiles.filter(f => !this.mediaSnapshotBeforeMessage.has(f));
   }
 
   private async startListening() {
@@ -88,6 +129,9 @@ class ManagedSession {
   }
 
   sendMessage(content: string, source: string = "web") {
+    // Take snapshot of media directory before processing
+    this.snapshotMediaDirectory();
+
     // Store user message in database
     messageRepo.create({
       session_id: this.sessionId,
@@ -165,6 +209,20 @@ class ManagedSession {
         cost: message.total_cost_usd,
         duration: message.duration_ms,
       });
+
+      // Check for new files in media directory (outbox model)
+      if (message.subtype === "success") {
+        const newFiles = this.findNewMediaFiles();
+        for (const filePath of newFiles) {
+          this.broadcast({
+            type: "file_delivery",
+            filePath,
+            filename: path.basename(filePath),
+            sessionName: this.sessionName,
+          });
+          console.log(`[Session] Delivering file from outbox: ${filePath}`);
+        }
+      }
     }
   }
 

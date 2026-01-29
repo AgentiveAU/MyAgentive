@@ -59,6 +59,8 @@ When creating files that the user should download, save them to ~/.myagentive/me
 
 Files saved in ~/.myagentive/media/ will be automatically available for download in the UI. The user can access them directly from the web interface without needing to use file commands.
 
+IMPORTANT: Always include the complete file path WITH filename in your response (e.g., ~/.myagentive/media/documents/report.pdf). This enables automatic file delivery to the user.
+
 ## API Keys and Configuration
 
 Your configuration file is located at ~/.myagentive/config. This file contains environment variables including API keys for various services.
