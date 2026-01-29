@@ -9,6 +9,7 @@ import {
   CheckSquare,
   ChevronDown,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
 import { Badge } from "../ui/badge";
@@ -76,6 +77,19 @@ function getToolSummary(toolName?: string, toolInput?: Record<string, any>) {
   }
 }
 
+// Check if a file path is downloadable via the /api/files/ endpoint
+function isDownloadable(filePath?: string): boolean {
+  if (!filePath) return false;
+  // Files in ~/.myagentive/ are downloadable
+  return filePath.includes("/.myagentive/") || filePath.startsWith("~/.myagentive/");
+}
+
+// Generate the download URL for a file path
+function getDownloadUrl(filePath: string): string {
+  // Use the /api/files/ endpoint with the path URL-encoded
+  return `/api/files/${encodeURIComponent(filePath)}`;
+}
+
 export function ToolUse({ message }: ToolUseProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -99,6 +113,17 @@ export function ToolUse({ message }: ToolUseProps) {
             <span className="text-xs text-muted-foreground truncate">
               {getToolSummary(message.toolName, message.toolInput)}
             </span>
+            {message.toolName === "Write" && isDownloadable(message.toolInput?.file_path) && (
+              <a
+                href={getDownloadUrl(message.toolInput!.file_path)}
+                download
+                className="ml-2 text-muted-foreground hover:text-foreground shrink-0"
+                title="Download file"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="h-4 w-4" />
+              </a>
+            )}
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
