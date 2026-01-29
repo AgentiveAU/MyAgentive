@@ -1,4 +1,5 @@
 import { Bot, Context, session } from "grammy";
+import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { config } from "../config.js";
 import { telegramAuthMiddleware } from "../auth/telegram-auth.js";
 import { sessionManager } from "../core/session-manager.js";
@@ -6,6 +7,10 @@ import { telegramSubscriptionManager } from "./subscription-manager.js";
 import { handleCommand } from "./handlers/command-handler.js";
 import { handleMessage } from "./handlers/message-handler.js";
 import { handleMedia } from "./handlers/media-handler.js";
+import { handleSticker } from "./sticker-handler.js";
+import { handleLocation, handleVenue } from "./handlers/location-handler.js";
+import { updateTracker } from "./update-tracker.js";
+import { menuBuilder } from "./inline-menu.js";
 
 // Session data stored per user
 interface SessionData {
@@ -17,6 +22,35 @@ type MyContext = Context & { session: SessionData };
 
 // Create bot instance
 const bot = new Bot<MyContext>(config.telegramBotToken);
+
+// Apply API throttler to prevent rate limiting
+// Global: 30 messages/second across all chats
+// Per-chat: 1 message/second per chat (Telegram's limit)
+const throttler = apiThrottler({
+  global: {
+    reservoir: 30,
+    reservoirRefreshAmount: 30,
+    reservoirRefreshInterval: 1000,
+  },
+  out: {
+    reservoir: 1,
+    reservoirRefreshAmount: 1,
+    reservoirRefreshInterval: 1000,
+  },
+});
+bot.api.config.use(throttler);
+
+// Update deduplication middleware - prevents processing same update twice
+bot.use(async (ctx, next) => {
+  const updateId = ctx.update.update_id;
+
+  if (updateTracker.isDuplicate(updateId)) {
+    console.log(`Skipping duplicate update: ${updateId}`);
+    return;
+  }
+
+  await next();
+});
 
 // Session middleware
 bot.use(
@@ -61,8 +95,12 @@ bot.command("help", async (ctx) => {
 /model - Show current model
 /model <opus|sonnet|haiku> - Change model
 
+⚙️ Settings:
+/replymode <off|first|all> - Reply threading mode
+/menu - Interactive command menu
+
 📎 Media:
-Send voice, files, videos, photos - they're saved and accessible by the agent.
+Send voice, files, videos, photos, stickers, locations - they're saved and accessible by the agent.
 
 /help - Show this message`
   );
@@ -74,6 +112,54 @@ bot.command("list", handleCommand);
 bot.command("status", handleCommand);
 bot.command("usage", handleCommand);
 bot.command("model", handleCommand);
+bot.command("replymode", handleCommand);
+bot.command("linkpreview", handleCommand);
+
+// Menu command - shows inline button menu
+bot.command("menu", async (ctx) => {
+  const keyboard = menuBuilder.buildMenu(menuBuilder.getDefaultMenuItems(), 0);
+  await ctx.reply("Choose an action:", { reply_markup: keyboard });
+});
+
+// Handle menu button clicks
+bot.callbackQuery(/^menu:/, async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const parsed = menuBuilder.parseCallback(data);
+
+  if (!parsed) {
+    await ctx.answerCallbackQuery({ text: "Invalid action" });
+    return;
+  }
+
+  switch (parsed.type) {
+    case "page":
+      // Navigate to different page
+      const keyboard = menuBuilder.buildMenu(
+        menuBuilder.getDefaultMenuItems(),
+        parsed.page
+      );
+      await ctx.editMessageReplyMarkup({ reply_markup: keyboard });
+      await ctx.answerCallbackQuery();
+      break;
+
+    case "cmd":
+      // Execute the command
+      await ctx.answerCallbackQuery({ text: `Running /${parsed.command}...` });
+      // Delete the menu message
+      try {
+        await ctx.deleteMessage();
+      } catch {
+        // Ignore if can't delete
+      }
+      // Send the command as if user typed it
+      await ctx.reply(`/${parsed.command}`);
+      break;
+
+    case "noop":
+      await ctx.answerCallbackQuery();
+      break;
+  }
+});
 
 // Media handlers (skip monitoring group)
 bot.on("message:voice", async (ctx) => {
@@ -95,6 +181,23 @@ bot.on("message:video", async (ctx) => {
 bot.on("message:photo", async (ctx) => {
   if (ctx.chat?.id === config.telegramMonitoringGroupId) return;
   await handleMedia(ctx);
+});
+
+// Sticker handler
+bot.on("message:sticker", async (ctx) => {
+  if (ctx.chat?.id === config.telegramMonitoringGroupId) return;
+  await handleSticker(ctx);
+});
+
+// Location handlers
+bot.on("message:location", async (ctx) => {
+  if (ctx.chat?.id === config.telegramMonitoringGroupId) return;
+  await handleLocation(ctx);
+});
+
+bot.on("message:venue", async (ctx) => {
+  if (ctx.chat?.id === config.telegramMonitoringGroupId) return;
+  await handleVenue(ctx);
 });
 
 // Text message handler (must be last)
@@ -152,12 +255,38 @@ bot.catch((err) => {
   // The error is logged and the bot continues running
 });
 
+// Register bot commands with Telegram's menu
+async function registerBotCommands(): Promise<void> {
+  const commands = [
+    { command: "new", description: "Create a new session" },
+    { command: "list", description: "List all sessions" },
+    { command: "session", description: "Switch to a named session" },
+    { command: "status", description: "Show current session info" },
+    { command: "menu", description: "Interactive command menu" },
+    { command: "model", description: "Show or change AI model" },
+    { command: "usage", description: "Show API usage" },
+    { command: "replymode", description: "Set reply threading mode" },
+    { command: "linkpreview", description: "Toggle link previews" },
+    { command: "help", description: "Show help message" },
+  ];
+
+  try {
+    await bot.api.setMyCommands(commands);
+    console.log("Telegram bot commands registered");
+  } catch (error) {
+    console.error("Failed to register bot commands:", error);
+  }
+}
+
 // Start function
 export async function startTelegramBot(): Promise<void> {
   console.log("Starting Telegram bot...");
 
   // Set bot instance on subscription manager for persistent subscriptions
   telegramSubscriptionManager.setBot(bot);
+
+  // Register commands with Telegram's menu button
+  await registerBotCommands();
 
   await bot.start({
     onStart: (botInfo) => {

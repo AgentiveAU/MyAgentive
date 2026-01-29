@@ -168,11 +168,21 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     const fileMessage = `${attachmentTag}${captionText}${agentContext}${transcriptionText}`;
 
     const chatId = ctx.chat?.id;
-    if (chatId) {
+    const originalMessageId = ctx.message?.message_id;
+    if (chatId && originalMessageId) {
       // Ensure user is subscribed to the session
       if (!telegramSubscriptionManager.isSubscribed(chatId) ||
           telegramSubscriptionManager.getSessionName(chatId) !== sessionName) {
         telegramSubscriptionManager.subscribe(chatId, sessionName);
+      }
+
+      // React with eyes emoji to acknowledge receipt (if enabled)
+      if (config.telegramReactionAck) {
+        try {
+          await ctx.react("👀");
+        } catch {
+          // Reactions may not be supported in all chats
+        }
       }
 
       // Create placeholder for agent response
@@ -181,7 +191,7 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
         ? "Thinking..."
         : "Processing file...";
       const placeholder = await ctx.reply(placeholderText);
-      telegramSubscriptionManager.startActiveResponse(chatId, placeholder.message_id);
+      telegramSubscriptionManager.startActiveResponse(chatId, placeholder.message_id, originalMessageId);
     }
 
     // Get the session and send message

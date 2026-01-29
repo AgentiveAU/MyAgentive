@@ -6,6 +6,7 @@ import type { OutgoingWSMessage } from "../types.js";
 import { convertToTelegramMarkdown } from "./markdown-converter.js";
 import { validateMediaPath, type DetectedMedia } from "../utils/media-detector.js";
 import { config } from "../config.js";
+import { replyModeManager } from "./reply-mode.js";
 
 // Attachment tag format from web uploads
 const ATTACHMENT_PATTERN = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
@@ -13,12 +14,50 @@ const ATTACHMENT_PATTERN = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|
 // Telegram message length limit
 const MAX_MESSAGE_LENGTH = 4096;
 
+// Split long text into chunks that fit Telegram's limit
+function splitMessage(text: string, maxLength: number = MAX_MESSAGE_LENGTH): string[] {
+  if (text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let remaining = text;
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLength) {
+      chunks.push(remaining);
+      break;
+    }
+
+    // Try to split at a natural break point (newline, then space)
+    let splitIndex = maxLength;
+
+    // Look for last newline within the limit
+    const lastNewline = remaining.lastIndexOf('\n', maxLength);
+    if (lastNewline > maxLength * 0.5) {
+      splitIndex = lastNewline + 1;
+    } else {
+      // Look for last space within the limit
+      const lastSpace = remaining.lastIndexOf(' ', maxLength);
+      if (lastSpace > maxLength * 0.5) {
+        splitIndex = lastSpace + 1;
+      }
+    }
+
+    chunks.push(remaining.substring(0, splitIndex).trimEnd());
+    remaining = remaining.substring(splitIndex).trimStart();
+  }
+
+  return chunks;
+}
+
 // Response timeout in minutes (default 60 minutes)
 const RESPONSE_TIMEOUT_MINUTES = parseInt(process.env.TELEGRAM_RESPONSE_TIMEOUT_MINUTES || "60", 10);
 
 // Track active responses (user is waiting for agent reply to their message)
 interface ActiveResponse {
   messageId: number;
+  originalMessageId: number; // The user's original message (for reaction removal)
   content: string;
   lastUpdate: number;
   timeout?: NodeJS.Timeout;
@@ -100,7 +139,7 @@ class TelegramSubscriptionManager {
   }
 
   // Start an active response (user sent a message, waiting for reply)
-  startActiveResponse(chatId: number, messageId: number): void {
+  startActiveResponse(chatId: number, messageId: number, originalMessageId?: number): void {
     const subscription = this.subscriptions.get(chatId);
     if (!subscription) return;
 
@@ -115,16 +154,30 @@ class TelegramSubscriptionManager {
       if (sub?.activeResponse) {
         const content = sub.activeResponse.content || "Response timed out";
         await this.updateActiveMessage(chatId, content + `\n\n[Timed out after ${RESPONSE_TIMEOUT_MINUTES} minutes]`);
+        // Remove reaction on timeout
+        await this.removeReactionAck(chatId, sub.activeResponse.originalMessageId);
         sub.activeResponse = null;
       }
     }, RESPONSE_TIMEOUT_MINUTES * 60 * 1000);
 
     subscription.activeResponse = {
       messageId,
+      originalMessageId: originalMessageId || messageId,
       content: "",
       lastUpdate: Date.now(),
       timeout,
     };
+  }
+
+  // Remove the acknowledgement reaction from a message
+  private async removeReactionAck(chatId: number, messageId: number): Promise<void> {
+    if (!this.bot || !config.telegramReactionAck) return;
+
+    try {
+      await this.bot.api.setMessageReaction(chatId, messageId, []);
+    } catch {
+      // Ignore reaction removal errors (message may be too old, or reactions not supported)
+    }
   }
 
   // Handle incoming messages from session manager
@@ -178,9 +231,25 @@ class TelegramSubscriptionManager {
               clearTimeout(subscription.activeResponse.timeout);
             }
 
+            // Remove the acknowledgement reaction
+            await this.removeReactionAck(chatId, subscription.activeResponse.originalMessageId);
+
             // Final update with markdown formatting
             if (subscription.activeResponse.content) {
-              await this.updateActiveMessage(chatId, subscription.activeResponse.content, true);
+              const fullContent = subscription.activeResponse.content;
+
+              // If content fits in one message, just update the placeholder
+              if (fullContent.length <= MAX_MESSAGE_LENGTH) {
+                await this.updateActiveMessage(chatId, fullContent, true);
+              } else {
+                // Content is too long - delete placeholder and send as multiple messages
+                try {
+                  await this.bot!.api.deleteMessage(chatId, subscription.activeResponse.messageId);
+                } catch {
+                  // Ignore delete errors
+                }
+                await this.sendNewMessage(chatId, fullContent, true);
+              }
             } else {
               await this.updateActiveMessage(chatId, "Done (no text response)");
             }
@@ -200,6 +269,9 @@ class TelegramSubscriptionManager {
             if (subscription.activeResponse.timeout) {
               clearTimeout(subscription.activeResponse.timeout);
             }
+
+            // Remove the acknowledgement reaction
+            await this.removeReactionAck(chatId, subscription.activeResponse.originalMessageId);
 
             await this.updateActiveMessage(chatId, `Error: ${message.error}`);
             subscription.activeResponse = null;
@@ -260,35 +332,59 @@ class TelegramSubscriptionManager {
     }
   }
 
-  // Send a new message to the user
+  // Send a new message to the user (splits long messages automatically)
   private async sendNewMessage(chatId: number, content: string, formatted: boolean = false): Promise<void> {
     if (!this.bot) return;
 
-    let displayContent = content;
-    if (content.length > MAX_MESSAGE_LENGTH) {
-      displayContent = content.substring(0, MAX_MESSAGE_LENGTH - 20) + "\n\n[truncated]";
-    }
+    // Split long messages into chunks
+    const chunks = splitMessage(content);
 
-    try {
-      if (formatted) {
-        const { content: formattedContent, parseMode } = convertToTelegramMarkdown(displayContent);
-        await this.bot.api.sendMessage(chatId, formattedContent, {
-          parse_mode: parseMode,
-        });
-      } else {
-        await this.bot.api.sendMessage(chatId, displayContent);
-      }
-    } catch (error) {
-      // If formatted message fails, retry without formatting
-      if (formatted) {
-        console.error(`Formatted message failed, retrying plain text:`, error);
-        try {
-          await this.bot.api.sendMessage(chatId, displayContent);
-        } catch (retryError) {
-          console.error(`Failed to send message to Telegram user ${chatId}:`, retryError);
+    // Get reply-to message ID based on current mode (only for first chunk)
+    const replyToId = replyModeManager.getReplyToId(chatId);
+
+    // Get link preview options (only enable for last chunk)
+    const linkPreviewDisabled = { link_preview_options: { is_disabled: true } };
+    const linkPreviewEnabled = config.telegramLinkPreview ? {} : linkPreviewDisabled;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const isFirst = i === 0;
+      const isLast = i === chunks.length - 1;
+
+      // Reply-to only on first message
+      const replyOptions = isFirst && replyToId ? { reply_to_message_id: replyToId } : {};
+      // Link preview only on last message
+      const linkPreviewOptions = isLast ? linkPreviewEnabled : linkPreviewDisabled;
+
+      try {
+        if (formatted) {
+          const { content: formattedContent, parseMode } = convertToTelegramMarkdown(chunk);
+          await this.bot.api.sendMessage(chatId, formattedContent, {
+            parse_mode: parseMode,
+            ...replyOptions,
+            ...linkPreviewOptions,
+          });
+        } else {
+          await this.bot.api.sendMessage(chatId, chunk, {
+            ...replyOptions,
+            ...linkPreviewOptions,
+          });
         }
-      } else {
-        console.error(`Failed to send message to Telegram user ${chatId}:`, error);
+      } catch (error) {
+        // If formatted message fails, retry without formatting
+        if (formatted) {
+          console.error(`Formatted message failed, retrying plain text:`, error);
+          try {
+            await this.bot.api.sendMessage(chatId, chunk, {
+              ...replyOptions,
+              ...linkPreviewOptions,
+            });
+          } catch (retryError) {
+            console.error(`Failed to send message to Telegram user ${chatId}:`, retryError);
+          }
+        } else {
+          console.error(`Failed to send message to Telegram user ${chatId}:`, error);
+        }
       }
     }
   }
@@ -358,7 +454,7 @@ class TelegramSubscriptionManager {
     }
   }
 
-  // Update the active response message
+  // Update the active response message (during streaming - may truncate, full content sent on completion)
   private async updateActiveMessage(chatId: number, content: string, formatted: boolean = false): Promise<void> {
     if (!this.bot) return;
 
@@ -367,7 +463,8 @@ class TelegramSubscriptionManager {
 
     let displayContent = content;
     if (content.length > MAX_MESSAGE_LENGTH) {
-      displayContent = content.substring(0, MAX_MESSAGE_LENGTH - 20) + "\n\n[truncated]";
+      // During streaming, show truncated preview with indicator
+      displayContent = content.substring(0, MAX_MESSAGE_LENGTH - 50) + "\n\n... (streaming, full response on completion)";
     }
 
     try {

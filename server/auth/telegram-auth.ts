@@ -1,5 +1,6 @@
 import type { Context, NextFunction } from "grammy";
 import { config } from "../config.js";
+import { groupPolicyManager } from "../telegram/group-policy.js";
 
 /**
  * Check if the bot is mentioned in the message.
@@ -59,20 +60,15 @@ export async function telegramAuthMiddleware(
   const isGroupOrChannel = chatId !== undefined && chatId < 0;
 
   if (isGroupOrChannel) {
-    // For groups/channels: must be in allowed list AND bot must be mentioned
-    const isAllowed = config.telegramAllowedGroups.includes(chatId);
+    // Use group policy manager to determine if bot should respond
+    const isMentioned = isBotMentioned(ctx);
 
-    if (!isAllowed) {
-      // Not in allowed list - silently ignore
+    if (!groupPolicyManager.shouldRespond(chatId, isMentioned, userId)) {
+      // Policy says don't respond - silently ignore
       return;
     }
 
-    if (!isBotMentioned(ctx)) {
-      // In allowed group but bot not mentioned - silently ignore
-      return;
-    }
-
-    // Bot is mentioned in an allowed group - proceed
+    // Policy allows response - proceed
     // Note: We don't check userId here because anyone in the group can mention the bot
     await next();
     return;
