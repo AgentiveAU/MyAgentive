@@ -3,7 +3,11 @@ import path from "path";
 
 // Base directory for MyAgentive installation
 // Uses MYAGENTIVE_HOME if set, otherwise ~/.myagentive
-const MYAGENTIVE_HOME = process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+// NOTE: This is a function to ensure environment variables are read at runtime,
+// not at compile time (important for compiled binaries)
+function getMyAgentiveHome(): string {
+  return process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+}
 
 function required(name: string): string {
   const value = process.env[name];
@@ -31,7 +35,7 @@ function resolvePath(rawPath: string): string {
   }
   // Strip leading ./ if present, then resolve relative to MYAGENTIVE_HOME
   const cleanPath = rawPath.replace(/^\.\//, "");
-  return path.join(MYAGENTIVE_HOME, cleanPath);
+  return path.join(getMyAgentiveHome(), cleanPath);
 }
 
 export const config = {

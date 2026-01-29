@@ -347,6 +347,128 @@ app.get("/api/media/*", authMiddleware, (req, res) => {
   }
 });
 
+// General file serving endpoint (authenticated)
+// Serves files from agent-accessible directories (e.g. ~/.myagentive/)
+// Security: validates path is within allowed directories, blocks sensitive files
+app.get("/api/files/*", authMiddleware, (req, res) => {
+  const requestedPath = req.params[0];
+
+  // Decode and resolve path
+  const decodedPath = decodeURIComponent(requestedPath);
+
+  // Handle ~ expansion for home directory
+  let expandedPath = decodedPath;
+  if (decodedPath.startsWith("~/") || decodedPath === "~") {
+    expandedPath = decodedPath.replace(/^~/, process.env.HOME || "");
+  }
+
+  const resolvedPath = path.resolve(expandedPath);
+
+  // Security: validate path is within allowed directories
+  const myAgentiveHome = process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+  const allowedPrefixes = [myAgentiveHome];
+
+  const isAllowed = allowedPrefixes.some(prefix =>
+    resolvedPath.startsWith(prefix + path.sep) || resolvedPath === prefix
+  );
+
+  if (!isAllowed) {
+    return res.status(403).json({ error: "Access denied: path outside allowed directories" });
+  }
+
+  // Block sensitive files
+  const sensitivePatterns = [
+    ".env",
+    "credentials",
+    "id_rsa",
+    "id_ed25519",
+    ".pem",
+    ".key",
+    "private",
+    "secret",
+    "password",
+    ".ssh",
+  ];
+  const lowercasePath = resolvedPath.toLowerCase();
+  if (sensitivePatterns.some(pattern => lowercasePath.includes(pattern))) {
+    return res.status(403).json({ error: "Access denied: sensitive file" });
+  }
+
+  // Check file exists
+  if (!fs.existsSync(resolvedPath)) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  // Check it's a file, not a directory
+  const stats = fs.statSync(resolvedPath);
+  if (stats.isDirectory()) {
+    return res.status(400).json({ error: "Cannot serve directories" });
+  }
+
+  // Check file size
+  if (stats.size > MAX_MEDIA_SIZE) {
+    return res.status(413).json({ error: "File too large" });
+  }
+
+  const mimeType = getMimeType(resolvedPath);
+  const fileSize = stats.size;
+  const filename = path.basename(resolvedPath);
+
+  // Set Content-Disposition for download
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+  // Handle Range requests for proper streaming
+  const range = req.headers.range;
+
+  if (range) {
+    // Parse Range header (e.g., "bytes=0-1024")
+    const parts = range.replace(/bytes=/, "").split("-");
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    // Validate range (including NaN from malformed headers)
+    if (isNaN(start) || isNaN(end) || start < 0 || start >= fileSize || end >= fileSize || start > end) {
+      res.status(416).setHeader("Content-Range", `bytes */${fileSize}`);
+      return res.end();
+    }
+
+    const chunkSize = end - start + 1;
+
+    res.status(206);
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", chunkSize);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const stream = fs.createReadStream(resolvedPath, { start, end });
+    stream.on("error", (err) => {
+      console.error("[Files] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
+  } else {
+    // No Range header: serve entire file
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", fileSize);
+    res.setHeader("Accept-Ranges", "bytes");
+
+    const stream = fs.createReadStream(resolvedPath);
+    stream.on("error", (err) => {
+      console.error("[Files] Stream error:", err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to read file" });
+      } else {
+        res.end();
+      }
+    });
+    stream.pipe(res);
+  }
+});
+
 // File upload endpoint (authenticated)
 // Accepts multipart form data with 'file' field and optional 'sessionName'
 app.post("/api/upload", authMiddleware, async (req, res) => {

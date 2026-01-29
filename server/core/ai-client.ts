@@ -49,7 +49,15 @@ You have full access to the system and can execute commands, read/write files, a
 Always ask permission before actions that could have severe impact (it may break the user system or make high security risk)
 Be concise but thorough in your responses. Use Australian English spelling.
 
-When creating audio, video, or image files for the user, save them in the media/ directory (e.g., media/audio/, media/voice/, media/videos/, media/photos/) so they can be automatically delivered to the user.
+## Saving Files for User Download
+
+When creating files that the user should download, save them to ~/.myagentive/media/ subdirectories:
+- Documents, spreadsheets, and PDFs: ~/.myagentive/media/documents/
+- Images and photos: ~/.myagentive/media/photos/
+- Audio files: ~/.myagentive/media/audio/
+- Video files: ~/.myagentive/media/videos/
+
+Files saved in ~/.myagentive/media/ will be automatically available for download in the UI. The user can access them directly from the web interface without needing to use file commands.
 
 ## API Keys and Configuration
 
@@ -71,10 +79,15 @@ You are responsible for managing API keys on behalf of the user. Always save new
 When users ask about MyAgentive itself (You) like what it is, how to configure it, troubleshooting, architecture, use "myagentive" skill to answer.`;
 
 // System prompt file paths
-const MYAGENTIVE_HOME =
-  process.env.MYAGENTIVE_HOME ||
-  path.join(process.env.HOME || "", ".myagentive");
-const SYSTEM_PROMPT_PATH = path.join(MYAGENTIVE_HOME, "system_prompt.md");
+// NOTE: These are functions to ensure environment variables are read at runtime,
+// not at compile time (important for compiled binaries)
+function getMyAgentiveHome(): string {
+  return process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
+}
+
+function getSystemPromptPath(): string {
+  return path.join(getMyAgentiveHome(), "system_prompt.md");
+}
 
 function getDefaultPromptPath(): string {
   const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
@@ -87,11 +100,14 @@ function getDefaultPromptPath(): string {
 }
 
 function loadSystemPrompt(): string {
+  const systemPromptPath = getSystemPromptPath();
+  const myAgentiveHome = getMyAgentiveHome();
+
   // Try user's custom prompt first
-  if (fs.existsSync(SYSTEM_PROMPT_PATH)) {
+  if (fs.existsSync(systemPromptPath)) {
     try {
-      const customPrompt = fs.readFileSync(SYSTEM_PROMPT_PATH, "utf-8");
-      console.log(`Loaded custom system prompt from: ${SYSTEM_PROMPT_PATH}`);
+      const customPrompt = fs.readFileSync(systemPromptPath, "utf-8");
+      console.log(`Loaded custom system prompt from: ${systemPromptPath}`);
       return customPrompt;
     } catch (error) {
       console.warn("Failed to read custom system prompt, using default");
@@ -111,9 +127,9 @@ function loadSystemPrompt(): string {
 
   // Copy default to user location for discoverability
   try {
-    if (fs.existsSync(MYAGENTIVE_HOME)) {
-      fs.writeFileSync(SYSTEM_PROMPT_PATH, defaultPrompt, "utf-8");
-      console.log(`Created customisable system prompt at: ${SYSTEM_PROMPT_PATH}`);
+    if (fs.existsSync(myAgentiveHome)) {
+      fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
+      console.log(`Created customisable system prompt at: ${systemPromptPath}`);
     }
   } catch (error) {
     console.warn("Could not create user system prompt file");
@@ -133,7 +149,7 @@ type UserMessage = {
 // Simple async queue - messages go in via push(), come out via async iteration
 class MessageQueue {
   private messages: UserMessage[] = [];
-  private waiting: ((msg: UserMessage) => void) | null = null;
+  private waiting: ((msg: UserMessage | null) => void) | null = null;
   private closed = false;
 
   push(content: string) {
@@ -160,23 +176,26 @@ class MessageQueue {
       if (this.messages.length > 0) {
         yield this.messages.shift()!;
       } else {
-        // Wait for next message
-        yield await new Promise<UserMessage>((resolve) => {
+        // Wait for next message (or null if closed)
+        const msg = await new Promise<UserMessage | null>((resolve) => {
           this.waiting = resolve;
         });
+        // If we got null, the queue was closed while waiting
+        if (msg === null) {
+          break;
+        }
+        yield msg;
       }
     }
   }
 
   close() {
     this.closed = true;
-    // Resolve any pending wait
+    // Resolve any pending wait with null to signal closure
+    // (instead of sending an empty message which causes API errors)
     if (this.waiting) {
-      // Create a dummy message to unblock
-      this.waiting({
-        type: "user",
-        message: { role: "user", content: "" },
-      });
+      this.waiting(null);
+      this.waiting = null;
     }
   }
 }
