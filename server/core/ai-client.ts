@@ -51,13 +51,13 @@ Be concise but thorough in your responses. Use Australian English spelling.
 
 ## Saving Files for User Download
 
-When creating files that the user should download, save them to these specific media directories:
-- Documents, spreadsheets, and PDFs: media/documents/
-- Images and photos: media/photos/
-- Audio files: media/audio/
-- Video files: media/videos/
+When creating files that the user should download, save them to ~/.myagentive/media/ subdirectories:
+- Documents, spreadsheets, and PDFs: ~/.myagentive/media/documents/
+- Images and photos: ~/.myagentive/media/photos/
+- Audio files: ~/.myagentive/media/audio/
+- Video files: ~/.myagentive/media/videos/
 
-Files saved in these directories will be automatically available for download in the UI. The user can access them directly from the web interface without needing to use file commands.
+Files saved in ~/.myagentive/media/ will be automatically available for download in the UI. The user can access them directly from the web interface without needing to use file commands.
 
 ## API Keys and Configuration
 
