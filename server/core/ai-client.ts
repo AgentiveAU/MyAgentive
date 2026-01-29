@@ -141,7 +141,7 @@ type UserMessage = {
 // Simple async queue - messages go in via push(), come out via async iteration
 class MessageQueue {
   private messages: UserMessage[] = [];
-  private waiting: ((msg: UserMessage) => void) | null = null;
+  private waiting: ((msg: UserMessage | null) => void) | null = null;
   private closed = false;
 
   push(content: string) {
@@ -168,23 +168,26 @@ class MessageQueue {
       if (this.messages.length > 0) {
         yield this.messages.shift()!;
       } else {
-        // Wait for next message
-        yield await new Promise<UserMessage>((resolve) => {
+        // Wait for next message (or null if closed)
+        const msg = await new Promise<UserMessage | null>((resolve) => {
           this.waiting = resolve;
         });
+        // If we got null, the queue was closed while waiting
+        if (msg === null) {
+          break;
+        }
+        yield msg;
       }
     }
   }
 
   close() {
     this.closed = true;
-    // Resolve any pending wait
+    // Resolve any pending wait with null to signal closure
+    // (instead of sending an empty message which causes API errors)
     if (this.waiting) {
-      // Create a dummy message to unblock
-      this.waiting({
-        type: "user",
-        message: { role: "user", content: "" },
-      });
+      this.waiting(null);
+      this.waiting = null;
     }
   }
 }

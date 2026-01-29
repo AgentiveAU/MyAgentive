@@ -1,6 +1,6 @@
 {
   "name": "myagentive",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "type": "module",
   "description": "MyAgentive, a multi-interface personal AI Agent application (Web, Telegram, CLI)",
   "scripts": {
