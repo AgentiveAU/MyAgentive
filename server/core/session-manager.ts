@@ -68,6 +68,8 @@ class ManagedSession {
   private agentSession: AgentSession;
   private subscribers: Map<string, ClientSubscription> = new Map();
   private isListening = false;
+  private isResetting = false;
+  private isProcessing = false;
   private eventEmitter: EventEmitter;
   private mediaSnapshotBeforeMessage: Set<string> = new Set();
 
@@ -118,59 +120,97 @@ class ManagedSession {
   }
 
   // Reset the agent session (for recovery after errors)
-  private resetAgentSession() {
-    try {
-      this.agentSession.close();
-    } catch {
-      // Ignore close errors
+  private async resetAgentSession(): Promise<void> {
+    // Prevent concurrent resets
+    if (this.isResetting) {
+      console.log(`[Session ${this.sessionName}] Reset already in progress, skipping`);
+      return;
     }
-    this.agentSession = new AgentSession();
-    this.isListening = false;
+
+    this.isResetting = true;
+
+    try {
+      // Close old session
+      try {
+        this.agentSession.close();
+      } catch {
+        // Ignore close errors
+      }
+
+      // Small delay to allow process cleanup
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Create new session
+      this.agentSession = new AgentSession();
+      this.isListening = false;
+      console.log(`[Session ${this.sessionName}] Agent session reset complete`);
+    } finally {
+      this.isResetting = false;
+    }
   }
 
-  sendMessage(content: string, source: string = "web") {
-    // Take snapshot of media directory before processing
-    this.snapshotMediaDirectory();
+  async sendMessage(content: string, source: string = "web"): Promise<void> {
+    // Prevent concurrent message processing
+    if (this.isProcessing) {
+      console.log(`[Session ${this.sessionName}] Already processing a message, please wait`);
+      this.broadcastError("Please wait for the current request to complete");
+      return;
+    }
 
-    // Store user message in database
-    messageRepo.create({
-      session_id: this.sessionId,
-      role: "user",
-      content,
-      source,
-    });
+    this.isProcessing = true;
 
-    // Broadcast user message to all subscribers
-    this.broadcast({
-      type: "user_message",
-      content,
-      sessionName: this.sessionName,
-      source,
-    });
-
-    // Emit activity event
-    this.emitActivity("message", `User: ${content.substring(0, 100)}...`, { role: "user", source });
-
-    // Try to send to agent, reset session if it fails
     try {
-      this.agentSession.sendMessage(content);
-    } catch (error) {
-      console.warn(`Agent session error, resetting: ${(error as Error).message}`);
-      this.resetAgentSession();
-      // Try again with fresh session
+      // Take snapshot of media directory before processing
+      this.snapshotMediaDirectory();
+
+      // Store user message in database
+      messageRepo.create({
+        session_id: this.sessionId,
+        role: "user",
+        content,
+        source,
+      });
+
+      // Broadcast user message to all subscribers
+      this.broadcast({
+        type: "user_message",
+        content,
+        sessionName: this.sessionName,
+        source,
+      });
+
+      // Emit activity event
+      this.emitActivity("message", `User: ${content.substring(0, 100)}...`, { role: "user", source });
+
+      // Try to send to agent, reset session if it fails
       try {
         this.agentSession.sendMessage(content);
-      } catch (retryError) {
-        console.error(`Failed to send message after reset:`, retryError);
-        this.broadcastError(`Failed to send message: ${(retryError as Error).message}`);
-        return;
+      } catch (error) {
+        console.warn(`[Session ${this.sessionName}] Agent session error, resetting: ${(error as Error).message}`);
+        await this.resetAgentSession();
+        // Try again with fresh session
+        try {
+          this.agentSession.sendMessage(content);
+        } catch (retryError) {
+          console.error(`[Session ${this.sessionName}] Failed to send message after reset:`, retryError);
+          this.broadcastError(`Failed to send message: ${(retryError as Error).message}`);
+          return;
+        }
       }
-    }
 
-    // Start listening if not already
-    if (!this.isListening) {
-      this.startListening();
+      // Start listening if not already
+      if (!this.isListening) {
+        this.startListening();
+      }
+    } finally {
+      // Note: isProcessing stays true until the agent completes (result event)
+      // This is intentional to prevent sending multiple messages while agent is working
     }
+  }
+
+  // Called when agent completes processing (from handleSDKMessage on result)
+  private markProcessingComplete(): void {
+    this.isProcessing = false;
   }
 
   private handleSDKMessage(message: any) {
@@ -223,6 +263,9 @@ class ManagedSession {
           console.log(`[Session] Delivering file from outbox: ${filePath}`);
         }
       }
+
+      // Mark processing complete so new messages can be sent
+      this.markProcessingComplete();
     }
   }
 
