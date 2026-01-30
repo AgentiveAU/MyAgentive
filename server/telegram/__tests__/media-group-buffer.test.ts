@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MediaGroupBuffer } from '../media-group-buffer.js';
+import { MediaGroupBuffer, BufferedMediaGroup } from '../media-group-buffer.js';
+
+type FlushCallback = (group: BufferedMediaGroup) => Promise<void>;
 
 describe('MediaGroupBuffer', () => {
   let buffer: MediaGroupBuffer;
-  let flushCallback: ReturnType<typeof vi.fn>;
+  let flushCallback: FlushCallback & ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    flushCallback = vi.fn();
+    flushCallback = vi.fn() as FlushCallback & ReturnType<typeof vi.fn>;
     buffer = new MediaGroupBuffer(1000, flushCallback);
   });
 

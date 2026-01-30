@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { FragmentBuffer } from '../fragment-buffer.js';
 
+type FlushCallback = (chatId: number, combinedText: string, firstMessageId: number) => Promise<void>;
+
 describe('FragmentBuffer', () => {
   let buffer: FragmentBuffer;
-  let flushCallback: ReturnType<typeof vi.fn>;
+  let flushCallback: FlushCallback & ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    flushCallback = vi.fn();
+    flushCallback = vi.fn() as FlushCallback & ReturnType<typeof vi.fn>;
     buffer = new FragmentBuffer(500, flushCallback);
   });
 
@@ -161,12 +163,14 @@ describe('FragmentBuffer', () => {
       expect(flushCallback).toHaveBeenCalledTimes(2);
 
       // Check first flush
-      const call1 = flushCallback.mock.calls.find((c) => c[0] === 111);
-      expect(call1[1]).toBe(text1);
+      const call1 = flushCallback.mock.calls.find((c: unknown[]) => c[0] === 111);
+      expect(call1).toBeDefined();
+      expect(call1![1]).toBe(text1);
 
       // Check second flush
-      const call2 = flushCallback.mock.calls.find((c) => c[0] === 222);
-      expect(call2[1]).toBe(text2);
+      const call2 = flushCallback.mock.calls.find((c: unknown[]) => c[0] === 222);
+      expect(call2).toBeDefined();
+      expect(call2![1]).toBe(text2);
     });
   });
 });
