@@ -9,6 +9,7 @@ export interface Session {
   updated_at: string;
   created_by: string;
   archived: number; // SQLite uses 0/1 for boolean
+  sdk_session_id: string | null; // Claude Agent SDK session ID for resume
 }
 
 export interface ListSessionsOptions {
@@ -145,5 +146,23 @@ export const sessionRepo = {
     const db = getDatabase();
     const result = db.prepare("DELETE FROM sessions WHERE name = ?").run(name);
     return result.changes > 0;
+  },
+
+  // Update SDK session ID (for session resume functionality)
+  updateSdkSessionId(id: string, sdkSessionId: string): void {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    db.prepare(
+      "UPDATE sessions SET sdk_session_id = ?, updated_at = ? WHERE id = ?"
+    ).run(sdkSessionId, now, id);
+  },
+
+  // Clear SDK session ID (when session cannot be resumed)
+  clearSdkSessionId(id: string): void {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+    db.prepare(
+      "UPDATE sessions SET sdk_session_id = NULL, updated_at = ? WHERE id = ?"
+    ).run(now, id);
   },
 };
