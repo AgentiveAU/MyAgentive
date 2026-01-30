@@ -4,6 +4,7 @@ import { sessionManager } from "../core/session-manager.js";
 import { telegramSubscriptionManager } from "./subscription-manager.js";
 import { replyModeManager } from "./reply-mode.js";
 import { config } from "../config.js";
+import { messageSessionTracker } from "./message-session-tracker.js";
 
 interface SessionData {
   currentSessionName: string;
@@ -77,7 +78,20 @@ export async function handleSticker(ctx: MyContext): Promise<void> {
   const originalMessageId = ctx.message?.message_id;
   if (!chatId || !originalMessageId) return;
 
-  const sessionName = ctx.session.currentSessionName;
+  let sessionName = ctx.session.currentSessionName;
+
+  // Check if user is replying to a bot message for thread-based context switching
+  const replyToMessage = ctx.message?.reply_to_message;
+  if (replyToMessage?.from?.is_bot && replyToMessage.message_id) {
+    const replySessionName = messageSessionTracker.getSessionForMessage(
+      chatId,
+      replyToMessage.message_id
+    );
+    if (replySessionName) {
+      sessionName = replySessionName;
+      ctx.session.currentSessionName = replySessionName;
+    }
+  }
 
   // Ensure user is subscribed to the session
   if (

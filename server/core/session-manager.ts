@@ -4,6 +4,7 @@ import path from "path";
 import { AgentSession } from "./ai-client.js";
 import { sessionRepo } from "../db/repositories/session-repo.js";
 import { messageRepo } from "../db/repositories/message-repo.js";
+import { messageSessionTracker } from "../telegram/message-session-tracker.js";
 import type {
   SessionInfo,
   ChatMessage,
@@ -450,6 +451,10 @@ class SessionManager extends EventEmitter {
       session.close();
       this.sessions.delete(name);
     }
+
+    // Clear Telegram message session mappings for this session
+    messageSessionTracker.clearSessionMappings(name);
+
     return sessionRepo.deleteByName(name);
   }
 

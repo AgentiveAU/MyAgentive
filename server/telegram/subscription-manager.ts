@@ -7,6 +7,7 @@ import { convertToTelegramMarkdown } from "./markdown-converter.js";
 import { validateMediaPath, type DetectedMedia } from "../utils/media-detector.js";
 import { config } from "../config.js";
 import { replyModeManager } from "./reply-mode.js";
+import { messageSessionTracker } from "./message-session-tracker.js";
 
 // Attachment tag format from web uploads
 const ATTACHMENT_PATTERN = /\[\[ATTACHMENT\|\|\|type:(\w+)\|\|\|url:([^\|]+)\|\|\|name:([^\]]+)\]\]/;
@@ -167,6 +168,9 @@ class TelegramSubscriptionManager {
       lastUpdate: Date.now(),
       timeout,
     };
+
+    // Track this placeholder message for thread-based context switching
+    messageSessionTracker.trackMessage(chatId, messageId, subscription.sessionName);
   }
 
   // Remove the acknowledgement reaction from a message
@@ -336,6 +340,9 @@ class TelegramSubscriptionManager {
   private async sendNewMessage(chatId: number, content: string, formatted: boolean = false): Promise<void> {
     if (!this.bot) return;
 
+    // Get the subscription to track messages
+    const subscription = this.subscriptions.get(chatId);
+
     // Split long messages into chunks
     const chunks = splitMessage(content);
 
@@ -357,28 +364,39 @@ class TelegramSubscriptionManager {
       const linkPreviewOptions = isLast ? linkPreviewEnabled : linkPreviewDisabled;
 
       try {
+        let sentMessage;
         if (formatted) {
           const { content: formattedContent, parseMode } = convertToTelegramMarkdown(chunk);
-          await this.bot.api.sendMessage(chatId, formattedContent, {
+          sentMessage = await this.bot.api.sendMessage(chatId, formattedContent, {
             parse_mode: parseMode,
             ...replyOptions,
             ...linkPreviewOptions,
           });
         } else {
-          await this.bot.api.sendMessage(chatId, chunk, {
+          sentMessage = await this.bot.api.sendMessage(chatId, chunk, {
             ...replyOptions,
             ...linkPreviewOptions,
           });
+        }
+
+        // Track sent message for thread-based context switching
+        if (subscription && sentMessage?.message_id) {
+          messageSessionTracker.trackMessage(chatId, sentMessage.message_id, subscription.sessionName);
         }
       } catch (error) {
         // If formatted message fails, retry without formatting
         if (formatted) {
           console.error(`Formatted message failed, retrying plain text:`, error);
           try {
-            await this.bot.api.sendMessage(chatId, chunk, {
+            const sentMessage = await this.bot.api.sendMessage(chatId, chunk, {
               ...replyOptions,
               ...linkPreviewOptions,
             });
+
+            // Track sent message for thread-based context switching
+            if (subscription && sentMessage?.message_id) {
+              messageSessionTracker.trackMessage(chatId, sentMessage.message_id, subscription.sessionName);
+            }
           } catch (retryError) {
             console.error(`Failed to send message to Telegram user ${chatId}:`, retryError);
           }

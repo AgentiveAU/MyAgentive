@@ -7,6 +7,7 @@ import { getDatabase } from "../../db/database.js";
 import { sessionManager } from "../../core/session-manager.js";
 import { telegramSubscriptionManager } from "../subscription-manager.js";
 import { transcribeVoiceFile } from "../../services/transcription.js";
+import { messageSessionTracker } from "../message-session-tracker.js";
 
 interface SessionData {
   currentSessionName: string;
@@ -107,8 +108,23 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
       transcriptionError = result.error;
     }
 
-    // Get session info
-    const sessionName = ctx.session.currentSessionName;
+    // Get session info, checking for reply-based context switching
+    let sessionName = ctx.session.currentSessionName;
+    const chatId = ctx.chat?.id;
+
+    // Check if user is replying to a bot message for thread-based context switching
+    const replyToMessage = message.reply_to_message;
+    if (chatId && replyToMessage?.from?.is_bot && replyToMessage.message_id) {
+      const replySessionName = messageSessionTracker.getSessionForMessage(
+        chatId,
+        replyToMessage.message_id
+      );
+      if (replySessionName) {
+        sessionName = replySessionName;
+        ctx.session.currentSessionName = replySessionName;
+      }
+    }
+
     const sessions = sessionManager.listSessions();
     const session = sessions.find((s) => s.name === sessionName);
 
@@ -167,7 +183,6 @@ export async function handleMedia(ctx: MyContext): Promise<void> {
     const agentContext = `\n\n[System: File path for agent access: ${storedPath}]`;
     const fileMessage = `${attachmentTag}${captionText}${agentContext}${transcriptionText}`;
 
-    const chatId = ctx.chat?.id;
     const originalMessageId = ctx.message?.message_id;
     if (chatId && originalMessageId) {
       // Ensure user is subscribed to the session

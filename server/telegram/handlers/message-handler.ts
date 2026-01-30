@@ -5,6 +5,7 @@ import { config } from "../../config.js";
 import { createFragmentBuffer } from "../fragment-buffer.js";
 import { replyModeManager } from "../reply-mode.js";
 import { forumManager } from "../forum-manager.js";
+import { messageSessionTracker } from "../message-session-tracker.js";
 
 interface SessionData {
   currentSessionName: string;
@@ -96,6 +97,19 @@ export async function handleMessage(ctx: MyContext): Promise<void> {
 
     // Use topic-specific session
     sessionName = forumManager.getTopicSessionName(chatId, topicId);
+  }
+
+  // Check if user is replying to a bot message for thread-based context switching
+  const replyToMessage = ctx.message?.reply_to_message;
+  if (replyToMessage?.from?.is_bot && replyToMessage.message_id) {
+    const replySessionName = messageSessionTracker.getSessionForMessage(
+      chatId,
+      replyToMessage.message_id
+    );
+    if (replySessionName) {
+      sessionName = replySessionName;
+      ctx.session.currentSessionName = replySessionName;
+    }
   }
 
   // Ensure user is subscribed to the session (for persistent updates)
