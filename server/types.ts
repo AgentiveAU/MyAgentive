@@ -122,6 +122,14 @@ export interface WSFileDeliveryMessage {
   sessionName: string;
 }
 
+export interface WSContextUpdateMessage {
+  type: "context_update";
+  sessionName: string;
+  usedTokens: number;
+  maxTokens: number;
+  usedPercentage: number;
+}
+
 export type OutgoingWSMessage =
   | WSConnectedMessage
   | WSHistoryMessage
@@ -133,7 +141,8 @@ export type OutgoingWSMessage =
   | WSErrorMessage
   | WSSessionsListMessage
   | WSPongMessage
-  | WSFileDeliveryMessage;
+  | WSFileDeliveryMessage
+  | WSContextUpdateMessage;
 
 // Activity event for monitoring
 export interface ActivityEvent {

@@ -240,6 +240,10 @@ class ManagedSession {
       }
     }
 
+    // Broadcast context usage updates from SDK messages
+    // The SDK may include context info in various message types
+    this.broadcastContextIfAvailable(message);
+
     if (message.type === "assistant") {
       const content = message.message.content;
 
@@ -292,6 +296,34 @@ class ManagedSession {
 
       // Mark processing complete so new messages can be sent
       this.markProcessingComplete();
+    }
+  }
+
+  // Extract and broadcast context usage information from SDK messages
+  private broadcastContextIfAvailable(message: any): void {
+    // Only process result messages which contain complete usage info
+    if (message.type !== "result" || !message.usage) {
+      return;
+    }
+
+    const usage = message.usage;
+    // Calculate total context usage: new input + cached content being read + new content being cached
+    const usedTokens =
+      (usage.input_tokens || 0) +
+      (usage.cache_read_input_tokens || 0) +
+      (usage.cache_creation_input_tokens || 0);
+
+    if (usedTokens > 0) {
+      // Default max tokens for Claude models (200k context window)
+      const maxTokens = 200000;
+      const usedPercentage = Math.round((usedTokens / maxTokens) * 100);
+      this.broadcast({
+        type: "context_update",
+        sessionName: this.sessionName,
+        usedTokens,
+        maxTokens,
+        usedPercentage,
+      });
     }
   }
 
