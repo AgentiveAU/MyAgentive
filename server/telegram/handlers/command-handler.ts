@@ -41,6 +41,9 @@ export async function handleCommand(ctx: MyContext): Promise<void> {
     case "linkpreview":
       await handleLinkPreviewCommand(ctx, args);
       break;
+    case "compact":
+      await handleCompactCommand(ctx, args);
+      break;
     default:
       await ctx.reply(`Unknown command: ${command}`);
   }
@@ -239,4 +242,25 @@ Link preview in responses is controlled by the TELEGRAM_LINK_PREVIEW environment
 
 Current setting: check your .env file`
   );
+}
+
+async function handleCompactCommand(ctx: MyContext, args: string[]): Promise<void> {
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+
+  const sessionName = ctx.session.currentSessionName;
+
+  // Build the /compact command with optional instructions
+  const compactMessage = args.length > 0
+    ? `/compact ${args.join(" ")}`
+    : "/compact";
+
+  // Subscribe to ensure we receive the response
+  telegramSubscriptionManager.subscribe(chatId, sessionName);
+
+  // Get the session and send the compact command
+  const session = sessionManager.getOrCreateSession(sessionName, "telegram");
+  session.sendMessage(compactMessage, "telegram");
+
+  await ctx.reply("⏳ Compacting context... This may take a moment.");
 }

@@ -244,6 +244,26 @@ class ManagedSession {
     // The SDK may include context info in various message types
     this.broadcastContextIfAvailable(message);
 
+    // Handle compaction status messages from SDK
+    if (message.type === "system" && message.subtype === "status" && message.status === "compacting") {
+      console.log(`[Session ${this.sessionName}] Context compaction started`);
+      this.broadcast({
+        type: "compacting",
+        sessionName: this.sessionName,
+      });
+    }
+
+    // Handle compaction completion (compact_boundary marks where compaction occurred)
+    if (message.type === "system" && message.subtype === "compact_boundary") {
+      console.log(`[Session ${this.sessionName}] Context compaction completed`);
+      this.broadcast({
+        type: "compacted",
+        sessionName: this.sessionName,
+        preTokens: message.compact_metadata?.pre_tokens,
+        trigger: message.compact_metadata?.trigger,
+      });
+    }
+
     if (message.type === "assistant") {
       const content = message.message.content;
 

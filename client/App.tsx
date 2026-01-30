@@ -172,6 +172,21 @@ export default function App() {
           usedPercentage: message.usedPercentage,
         });
         break;
+
+      case "compacting":
+        toast.loading("Compacting context...", { id: "compacting", duration: Infinity });
+        break;
+
+      case "compacted":
+        toast.dismiss("compacting");
+        if (message.preTokens) {
+          toast.success(`Context compacted (was ${Math.round(message.preTokens / 1000)}K tokens)`, { duration: 4000 });
+        } else {
+          toast.success("Context compacted", { duration: 3000 });
+        }
+        // Reset context info to trigger fresh update
+        setContextInfo(null);
+        break;
     }
   }, []);
 
