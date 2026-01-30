@@ -73,12 +73,21 @@ class ManagedSession {
   private isProcessing = false;
   private eventEmitter: EventEmitter;
   private mediaSnapshotBeforeMessage: Set<string> = new Set();
+  private sdkSessionId: string | null = null;
 
-  constructor(sessionId: string, sessionName: string, eventEmitter: EventEmitter) {
+  constructor(sessionId: string, sessionName: string, eventEmitter: EventEmitter, sdkSessionId?: string | null) {
     this.sessionId = sessionId;
     this.sessionName = sessionName;
     this.eventEmitter = eventEmitter;
-    this.agentSession = new AgentSession();
+    this.sdkSessionId = sdkSessionId || null;
+
+    // Create agent session, attempting to resume if we have an SDK session ID
+    if (this.sdkSessionId) {
+      console.log(`[Session ${sessionName}] Creating session with resume ID: ${this.sdkSessionId}`);
+    }
+    this.agentSession = new AgentSession({
+      resumeSessionId: this.sdkSessionId || undefined,
+    });
   }
 
   // Get the media directory path
@@ -141,8 +150,13 @@ class ManagedSession {
       // Small delay to allow process cleanup
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Create new session
-      this.agentSession = new AgentSession();
+      // Create new session, attempting to resume with stored SDK session ID
+      if (this.sdkSessionId) {
+        console.log(`[Session ${this.sessionName}] Resetting with resume ID: ${this.sdkSessionId}`);
+      }
+      this.agentSession = new AgentSession({
+        resumeSessionId: this.sdkSessionId || undefined,
+      });
       this.isListening = false;
       console.log(`[Session ${this.sessionName}] Agent session reset complete`);
     } finally {
@@ -215,6 +229,17 @@ class ManagedSession {
   }
 
   private handleSDKMessage(message: any) {
+    // Capture SDK session ID from init messages for session resume
+    if (message.type === "system" && message.subtype === "init" && message.session_id) {
+      const newSdkSessionId = message.session_id;
+      if (this.sdkSessionId !== newSdkSessionId) {
+        console.log(`[Session ${this.sessionName}] Captured SDK session ID: ${newSdkSessionId}`);
+        this.sdkSessionId = newSdkSessionId;
+        // Store in database for persistence across restarts
+        sessionRepo.updateSdkSessionId(this.sessionId, newSdkSessionId);
+      }
+    }
+
     if (message.type === "assistant") {
       const content = message.message.content;
 
@@ -351,8 +376,8 @@ class SessionManager extends EventEmitter {
     // Get or create in database
     const dbSession = sessionRepo.getOrCreateByName(name, createdBy);
 
-    // Create managed session
-    session = new ManagedSession(dbSession.id, dbSession.name, this);
+    // Create managed session with SDK session ID for resume capability
+    session = new ManagedSession(dbSession.id, dbSession.name, this, dbSession.sdk_session_id);
     this.sessions.set(name, session);
 
     return session;

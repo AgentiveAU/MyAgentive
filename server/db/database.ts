@@ -162,6 +162,14 @@ CREATE TABLE IF NOT EXISTS telegram_message_sessions (
 CREATE INDEX IF NOT EXISTS idx_tms_chat ON telegram_message_sessions(chat_id);
 CREATE INDEX IF NOT EXISTS idx_tms_created ON telegram_message_sessions(created_at);
 `,
+  "006-sdk-session-id.sql": `
+-- Add SDK session ID column for session resume functionality
+-- This stores the Claude Agent SDK's session_id for context restoration
+ALTER TABLE sessions ADD COLUMN sdk_session_id TEXT;
+
+-- Index for quick lookups when resuming sessions
+CREATE INDEX idx_sessions_sdk_session ON sessions(sdk_session_id) WHERE sdk_session_id IS NOT NULL;
+`,
 };
 
 export function getDatabase(): Database {

@@ -215,12 +215,16 @@ function findNvmClaudePaths(): string[] {
   }
 }
 
+export interface AgentSessionOptions {
+  resumeSessionId?: string; // SDK session ID to resume from
+}
+
 export class AgentSession {
   private queue = new MessageQueue();
   private outputIterator: AsyncIterator<any> | null = null;
   private closed = false;
 
-  constructor() {
+  constructor(options: AgentSessionOptions = {}) {
     // Start the query immediately with the queue as input
     // Use the current model preference
 
@@ -243,6 +247,11 @@ export class AgentSession {
       }
     }
 
+    // Log if resuming a session
+    if (options.resumeSessionId) {
+      console.log(`[AgentSession] Resuming SDK session: ${options.resumeSessionId}`);
+    }
+
     this.outputIterator = query({
       prompt: this.queue as any,
       options: {
@@ -263,6 +272,7 @@ export class AgentSession {
         ],
         systemPrompt: SYSTEM_PROMPT,
         ...(claudePath && { pathToClaudeCodeExecutable: claudePath }),
+        ...(options.resumeSessionId && { resume: options.resumeSessionId }),
       },
     })[Symbol.asyncIterator]();
   }
