@@ -130,6 +130,18 @@ export interface WSContextUpdateMessage {
   usedPercentage: number;
 }
 
+export interface WSCompactingMessage {
+  type: "compacting";
+  sessionName: string;
+}
+
+export interface WSCompactedMessage {
+  type: "compacted";
+  sessionName: string;
+  preTokens?: number;
+  trigger?: string;
+}
+
 export type OutgoingWSMessage =
   | WSConnectedMessage
   | WSHistoryMessage
@@ -142,7 +154,9 @@ export type OutgoingWSMessage =
   | WSSessionsListMessage
   | WSPongMessage
   | WSFileDeliveryMessage
-  | WSContextUpdateMessage;
+  | WSContextUpdateMessage
+  | WSCompactingMessage
+  | WSCompactedMessage;
 
 // Activity event for monitoring
 export interface ActivityEvent {

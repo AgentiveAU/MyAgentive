@@ -95,6 +95,9 @@ bot.command("help", async (ctx) => {
 /model - Show current model
 /model <opus|sonnet|haiku> - Change model
 
+🧠 Context:
+/compact [instructions] - Compact context to free space
+
 ⚙️ Settings:
 /replymode <off|first|all> - Reply threading mode
 /menu - Interactive command menu
@@ -114,6 +117,7 @@ bot.command("usage", handleCommand);
 bot.command("model", handleCommand);
 bot.command("replymode", handleCommand);
 bot.command("linkpreview", handleCommand);
+bot.command("compact", handleCommand);
 
 // Menu command - shows inline button menu
 bot.command("menu", async (ctx) => {
@@ -265,6 +269,7 @@ async function registerBotCommands(): Promise<void> {
     { command: "menu", description: "Interactive command menu" },
     { command: "model", description: "Show or change AI model" },
     { command: "usage", description: "Show API usage" },
+    { command: "compact", description: "Compact context to free space" },
     { command: "replymode", description: "Set reply threading mode" },
     { command: "linkpreview", description: "Toggle link previews" },
     { command: "help", description: "Show help message" },
