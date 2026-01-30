@@ -108,6 +108,32 @@ Optional:
 - Testing releases use prerelease versions (e.g., `v0.7.0-beta.1`) with `gh release create --prerelease`.
 - See `docs/RELEASE.md` for the full release process.
 
+## Quality Checklists (MANDATORY)
+
+### Before Every Commit
+
+**You MUST complete these checks before any commit.** Review `git diff` for issues in changed code only:
+
+1. **Check for hardcoded paths** - Search diff for `/home/`, `/Users/`, or absolute paths
+2. **Check for edge cases** - Verify empty strings, null, undefined are handled in new code
+3. **Check for runtime issues** - Module-level constants must not evaluate env vars at import time
+4. **Check for mistakes** - No secrets, no `console.log`, no commented-out code
+5. **Verify build works** - Run `bun run build` before committing
+6. **Report findings** - Tell the user what you checked and any issues found
+
+If any issues are found, fix them before committing. See `docs/PRE-PUSH-CHECKLIST.md` for full details.
+
+### Before Releases (Beta or Stable)
+
+**You MUST remind the user to complete the pre-release checklist.** Before tagging any release:
+
+1. Tell the user: "Before releasing, please run through `docs/PRE-RELEASE-CHECKLIST.md`"
+2. Key items that catch common bugs:
+   - Test the binary on a **different user account** (catches hardcoded paths)
+   - Test with a **fresh database** (catches migration issues)
+   - Test **empty message** edge case (catches API errors)
+3. Only proceed with release after user confirms testing is complete
+
 ## Style Notes
 
 - Use Australian English spelling
