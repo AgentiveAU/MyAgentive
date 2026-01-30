@@ -61,18 +61,18 @@ cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js d
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive/"
 
-# Copy skills to .claude/skills (SDK expects this location)
+# Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 echo "Copying skills..."
-rm -rf "$RELEASE_DIR/MyAgentive/.claude/skills"
-mkdir -p "$RELEASE_DIR/MyAgentive/.claude"
-cp -r .claude/skills "$RELEASE_DIR/MyAgentive/.claude/skills"
+rm -rf "$RELEASE_DIR/MyAgentive/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive/skills"
+cp -r .claude/skills/* "$RELEASE_DIR/MyAgentive/skills/"
 # Remove .DS_Store, venv, and other junk
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.DS_Store' -delete
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '*.pyc' -delete
-find "$RELEASE_DIR/MyAgentive/.claude/skills" -name '.env' -delete
+find "$RELEASE_DIR/MyAgentive/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentivectl" "$RELEASE_DIR/MyAgentive/myagentive"
 
@@ -87,16 +87,16 @@ cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js d
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
 
-# Copy skills for Linux to .claude/skills (SDK expects this location)
-rm -rf "$RELEASE_DIR/MyAgentive-linux/.claude/skills"
-mkdir -p "$RELEASE_DIR/MyAgentive-linux/.claude"
-cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux/.claude/skills"
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.DS_Store' -delete
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '*.pyc' -delete
-find "$RELEASE_DIR/MyAgentive-linux/.claude/skills" -name '.env' -delete
+# Copy skills to discoverable location (install script creates symlink for SDK compatibility)
+rm -rf "$RELEASE_DIR/MyAgentive-linux/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux/skills"
+cp -r .claude/skills/* "$RELEASE_DIR/MyAgentive-linux/skills/"
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
 
@@ -110,16 +110,16 @@ cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js d
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux-arm64/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
 
-# Copy skills for Linux ARM64 to .claude/skills (SDK expects this location)
-rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills"
-mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/.claude"
-cp -r .claude/skills "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills"
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.DS_Store' -delete
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '*.pyc' -delete
-find "$RELEASE_DIR/MyAgentive-linux-arm64/.claude/skills" -name '.env' -delete
+# Copy skills to discoverable location (install script creates symlink for SDK compatibility)
+rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/skills"
+mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/skills"
+cp -r .claude/skills/* "$RELEASE_DIR/MyAgentive-linux-arm64/skills/"
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '.DS_Store' -delete
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name 'venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '.venv' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '*.pyc' -delete
+find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '.env' -delete
 
 chmod +x "$RELEASE_DIR/MyAgentive-linux-arm64/myagentive" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl"
 

@@ -39,7 +39,16 @@ fi
 cp -rf myagentive myagentivectl "$BIN_DIR/"
 cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
 cp -rf dist "$INSTALL_DIR/"
-cp -rf .claude "$INSTALL_DIR/"
+# Copy skills to discoverable location
+mkdir -p "$INSTALL_DIR/skills"
+if [ -d "skills" ]; then
+    cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
+fi
+
+# Create .claude directory and symlink for SDK compatibility
+mkdir -p "$INSTALL_DIR/.claude"
+rm -rf "$INSTALL_DIR/.claude/skills"
+ln -sf "../skills" "$INSTALL_DIR/.claude/skills"
 
 # Create symlink for CLI
 mkdir -p "${HOME}/.local/bin"
