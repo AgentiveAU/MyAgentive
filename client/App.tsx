@@ -68,6 +68,11 @@ export default function App() {
     // Load token from localStorage on initial mount
     return localStorage.getItem("sessionToken");
   });
+  const [contextInfo, setContextInfo] = useState<{
+    usedTokens: number;
+    maxTokens: number;
+    usedPercentage: number;
+  } | null>(null);
 
   // Handle login with token
   const handleLogin = useCallback((token: string) => {
@@ -158,6 +163,14 @@ export default function App() {
         console.error("Server error:", message.error);
         setIsLoading(false);
         toast.error(message.error || "An error occurred");
+        break;
+
+      case "context_update":
+        setContextInfo({
+          usedTokens: message.usedTokens,
+          maxTokens: message.maxTokens,
+          usedPercentage: message.usedPercentage,
+        });
         break;
     }
   }, []);
@@ -330,6 +343,7 @@ export default function App() {
     setCurrentSessionName(name);
     setMessages([]);
     setIsLoading(false);
+    setContextInfo(null); // Reset context info when switching sessions
 
     if (isConnected) {
       sendJsonMessage({ type: "subscribe", sessionName: name });
@@ -454,6 +468,7 @@ export default function App() {
           isConnected={isConnected}
           isLoading={isLoading}
           onSendMessage={handleSendMessage}
+          contextInfo={contextInfo}
         />
       </AppShell>
       <Toaster position="bottom-right" />

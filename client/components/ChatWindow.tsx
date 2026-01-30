@@ -5,6 +5,7 @@ import { ChatInput } from "./chat/ChatInput";
 import { ChatSearch, useChatSearch } from "./chat/ChatSearch";
 import { ExportChat, useExportChat } from "./chat/ExportChat";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { ContextIndicator } from "./ContextIndicator";
 import { Button } from "./ui/button";
 
 interface Message {
@@ -16,6 +17,12 @@ interface Message {
   toolInput?: Record<string, any>;
 }
 
+interface ContextInfo {
+  usedTokens: number;
+  maxTokens: number;
+  usedPercentage: number;
+}
+
 interface ChatWindowProps {
   chatId: string | null;
   sessionName: string | null;
@@ -23,6 +30,7 @@ interface ChatWindowProps {
   isConnected: boolean;
   isLoading: boolean;
   onSendMessage: (content: string) => void;
+  contextInfo?: ContextInfo | null;
 }
 
 export function ChatWindow({
@@ -32,6 +40,7 @@ export function ChatWindow({
   isConnected,
   isLoading,
   onSendMessage,
+  contextInfo,
 }: ChatWindowProps) {
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | undefined>();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -156,6 +165,13 @@ export function ChatWindow({
           >
             <Download className="h-4 w-4" />
           </Button>
+          {contextInfo && (
+            <ContextIndicator
+              usedTokens={contextInfo.usedTokens}
+              maxTokens={contextInfo.maxTokens}
+              usedPercentage={contextInfo.usedPercentage}
+            />
+          )}
           <ConnectionStatus isConnected={isConnected} />
         </div>
       </header>

@@ -240,6 +240,10 @@ class ManagedSession {
       }
     }
 
+    // Broadcast context usage updates from SDK messages
+    // The SDK may include context info in various message types
+    this.broadcastContextIfAvailable(message);
+
     if (message.type === "assistant") {
       const content = message.message.content;
 
@@ -292,6 +296,48 @@ class ManagedSession {
 
       // Mark processing complete so new messages can be sent
       this.markProcessingComplete();
+    }
+  }
+
+  // Extract and broadcast context usage information from SDK messages
+  private broadcastContextIfAvailable(message: any): void {
+    // Check for context info in message - SDK may include it in various places
+    // Common patterns: message.context, message.usage, message.stats
+    let usedTokens: number | undefined;
+
+    // Check for usage info in the message (common in result messages)
+    if (message.usage) {
+      usedTokens = message.usage.input_tokens || message.usage.total_tokens;
+    }
+
+    // Check for context info in stats
+    if (message.stats?.context_tokens !== undefined) {
+      usedTokens = message.stats.context_tokens;
+    }
+
+    // Check for total_input_tokens in result messages
+    if (message.total_input_tokens !== undefined) {
+      usedTokens = message.total_input_tokens;
+    }
+
+    // Check for context window info
+    if (message.context_window_tokens !== undefined) {
+      usedTokens = message.context_window_tokens;
+    }
+
+    // Only broadcast if we have usage info
+    if (usedTokens !== undefined && usedTokens > 0) {
+      // Default max tokens for Claude models (200k context window)
+      // This can be adjusted based on actual model info if available
+      const maxTokens: number = message.max_context_tokens || message.context_window_size || 200000;
+      const usedPercentage = Math.round((usedTokens / maxTokens) * 100);
+      this.broadcast({
+        type: "context_update",
+        sessionName: this.sessionName,
+        usedTokens,
+        maxTokens,
+        usedPercentage,
+      });
     }
   }
 
