@@ -1,6 +1,6 @@
 {
   "name": "myagentive",
-  "version": "0.7.0-beta.4",
+  "version": "0.7.0-beta.5",
   "type": "module",
   "description": "MyAgentive, a multi-interface personal AI Agent application (Web, Telegram, CLI)",
   "scripts": {
@@ -22,6 +22,7 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.28",
     "@deepgram/sdk": "^4.11.3",
+    "@grammyjs/transformer-throttler": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -38,7 +39,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
-    "@grammyjs/transformer-throttler": "^1.2.1",
     "grammy": "^1.31.0",
     "katex": "^0.16.0",
     "lucide-react": "^0.562.0",
