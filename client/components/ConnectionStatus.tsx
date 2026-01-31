@@ -1,5 +1,4 @@
 import { Wifi, WifiOff } from "lucide-react";
-import { Badge } from "./ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -16,19 +15,13 @@ export function ConnectionStatus({ isConnected }: ConnectionStatusProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge
-            variant={isConnected ? "default" : "destructive"}
-            className="gap-1.5 cursor-help"
-          >
+          <div className="cursor-help">
             {isConnected ? (
-              <Wifi className="h-3 w-3" />
+              <Wifi className="h-4 w-4 text-muted-foreground" />
             ) : (
-              <WifiOff className="h-3 w-3" />
+              <WifiOff className="h-4 w-4 text-destructive" />
             )}
-            <span className="hidden sm:inline">
-              {isConnected ? "Connected" : "Disconnected"}
-            </span>
-          </Badge>
+          </div>
         </TooltipTrigger>
         <TooltipContent>
           <p>
