@@ -64,7 +64,7 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
       {/* Code content */}
       <pre
         className={cn(
-          "overflow-x-auto max-w-full p-3 rounded-md bg-muted-foreground/10 text-sm",
+          "overflow-x-auto max-w-full p-3 rounded-md bg-muted-foreground/10 text-foreground text-sm",
           language && "pt-7",
           className
         )}
