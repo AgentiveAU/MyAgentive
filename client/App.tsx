@@ -457,7 +457,10 @@ export default function App() {
     return <LoginForm onLogin={handleLogin} agentId={agentId} />;
   }
 
-  const selectedChatId = sessions.find((s) => s.name === currentSessionName)?.id || null;
+  const currentSession = sessions.find((s) => s.name === currentSessionName);
+  const selectedChatId = currentSession?.id || null;
+  const selectedSessionTitle = currentSession?.title || null;
+  const selectedSessionCreatedAt = currentSession?.createdAt || null;
 
   return (
     <>
@@ -479,6 +482,8 @@ export default function App() {
         <ChatWindow
           chatId={selectedChatId}
           sessionName={currentSessionName}
+          sessionTitle={selectedSessionTitle}
+          sessionCreatedAt={selectedSessionCreatedAt}
           messages={messages}
           isConnected={isConnected}
           isLoading={isLoading}

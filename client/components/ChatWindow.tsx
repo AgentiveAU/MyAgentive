@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Search, Download, Upload, LogOut } from "lucide-react";
+import { Search, Download, Upload, LogOut, Info } from "lucide-react";
 import { MessageList } from "./chat/MessageList";
 import { ChatInput } from "./chat/ChatInput";
 import { ChatSearch, useChatSearch } from "./chat/ChatSearch";
@@ -8,6 +8,7 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { ContextIndicator } from "./ContextIndicator";
 import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 
 interface Message {
   id: string;
@@ -27,6 +28,8 @@ interface ContextInfo {
 interface ChatWindowProps {
   chatId: string | null;
   sessionName: string | null;
+  sessionTitle: string | null;
+  sessionCreatedAt: string | null;
   messages: Message[];
   isConnected: boolean;
   isLoading: boolean;
@@ -38,6 +41,8 @@ interface ChatWindowProps {
 export function ChatWindow({
   chatId,
   sessionName,
+  sessionTitle,
+  sessionCreatedAt,
   messages,
   isConnected,
   isLoading,
@@ -148,7 +153,57 @@ export function ChatWindow({
 
       {/* Header - desktop only */}
       <header className="hidden md:flex h-14 items-center px-4 border-b shrink-0">
-        <h1 className="text-lg font-semibold">Chat</h1>
+        {sessionName && (
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-baseline gap-2 min-w-0">
+              {sessionTitle ? (
+                <>
+                  <h1 className="text-lg font-semibold truncate" title={sessionTitle}>
+                    {sessionTitle}
+                  </h1>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    ({sessionName})
+                  </span>
+                </>
+              ) : (
+                <h1 className="text-lg font-semibold truncate" title={sessionName}>
+                  {sessionName}
+                </h1>
+              )}
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-auto text-sm">
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-muted-foreground">ID: </span>
+                    <code className="bg-muted px-1 py-0.5 rounded text-xs select-all">{chatId}</code>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Slug: </span>
+                    <code className="bg-muted px-1 py-0.5 rounded text-xs select-all">{sessionName}</code>
+                  </div>
+                  {sessionCreatedAt && (
+                    <div>
+                      <span className="text-muted-foreground">Created: </span>
+                      <span className="select-all">
+                        {new Date(sessionCreatedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="ghost"
