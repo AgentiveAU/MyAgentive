@@ -483,6 +483,7 @@ export default function App() {
           isConnected={isConnected}
           isLoading={isLoading}
           onSendMessage={handleSendMessage}
+          onLogout={handleLogout}
           contextInfo={contextInfo}
         />
       </AppShell>

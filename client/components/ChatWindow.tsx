@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef } from "react";
-import { Search, Download, Upload } from "lucide-react";
+import { Search, Download, Upload, LogOut } from "lucide-react";
 import { MessageList } from "./chat/MessageList";
 import { ChatInput } from "./chat/ChatInput";
 import { ChatSearch, useChatSearch } from "./chat/ChatSearch";
 import { ExportChat, useExportChat } from "./chat/ExportChat";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { ContextIndicator } from "./ContextIndicator";
+import { ThemeToggle } from "./ThemeToggle";
 import { Button } from "./ui/button";
 
 interface Message {
@@ -30,6 +31,7 @@ interface ChatWindowProps {
   isConnected: boolean;
   isLoading: boolean;
   onSendMessage: (content: string) => void;
+  onLogout: () => void;
   contextInfo?: ContextInfo | null;
 }
 
@@ -40,6 +42,7 @@ export function ChatWindow({
   isConnected,
   isLoading,
   onSendMessage,
+  onLogout,
   contextInfo,
 }: ChatWindowProps) {
   const [suggestedPrompt, setSuggestedPrompt] = useState<string | undefined>();
@@ -173,6 +176,16 @@ export function ChatWindow({
             />
           )}
           <ConnectionStatus isConnected={isConnected} />
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onLogout}
+            className="h-8 w-8"
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 

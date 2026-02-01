@@ -3,7 +3,6 @@ import {
   MessageSquare,
   Archive,
   Plus,
-  LogOut,
   Search,
   PanelLeftClose,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { SessionItem } from "./SessionItem";
 import { SessionListSkeleton } from "./SessionListSkeleton";
-import { ThemeToggle } from "./ThemeToggle";
 
 interface Session {
   id: string;
@@ -35,7 +33,6 @@ interface SidebarProps {
   onArchiveSession: (name: string) => void;
   onUnarchiveSession: (name: string) => void;
   onDeleteSession: (name: string) => void;
-  onLogout: () => void;
   agentId?: string | null;
   // Desktop collapse control
   isCollapsed?: boolean;
@@ -53,7 +50,6 @@ export function Sidebar({
   onArchiveSession,
   onUnarchiveSession,
   onDeleteSession,
-  onLogout,
   agentId,
   isCollapsed,
   onToggleCollapse,
@@ -118,27 +114,15 @@ export function Sidebar({
             MyAgentive{agentId ? ` · ${agentId}` : ""}
           </span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowNewInput(true)}
-            className="h-8 w-8"
-            title="New Session"
-          >
-            <Plus className="h-4 w-4" />
-          </Button>
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onLogout}
-            className="h-8 w-8"
-            title="Logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowNewInput(true)}
+          className="h-8 w-8 shrink-0"
+          title="New Session"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* New Session Input - shown when creating */}

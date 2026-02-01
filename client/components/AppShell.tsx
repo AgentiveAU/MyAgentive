@@ -104,7 +104,6 @@ export function AppShell({
     onArchiveSession,
     onUnarchiveSession,
     onDeleteSession,
-    onLogout,
     agentId,
     // Pass collapse control to sidebar
     isCollapsed: sidebarCollapsed,
