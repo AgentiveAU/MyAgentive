@@ -109,6 +109,7 @@ export interface WSErrorMessage {
 export interface WSSessionsListMessage {
   type: "sessions_list";
   sessions: SessionInfo[];
+  archivedSessions: SessionInfo[];
 }
 
 export interface WSPongMessage {
