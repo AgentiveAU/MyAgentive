@@ -839,7 +839,31 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
 }
 
 export async function stopServer(): Promise<void> {
+  const SHUTDOWN_TIMEOUT_MS = 10000; // 10 seconds
+
   return new Promise((resolve) => {
+    let resolved = false;
+
+    const forceResolve = () => {
+      if (!resolved) {
+        resolved = true;
+        console.warn("Server shutdown timed out, forcing termination");
+        resolve();
+      }
+    };
+
+    const gracefulResolve = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        console.log("Server stopped gracefully");
+        resolve();
+      }
+    };
+
+    // Set timeout for forced shutdown
+    const timeoutId = setTimeout(forceResolve, SHUTDOWN_TIMEOUT_MS);
+
     clearInterval(heartbeatInterval);
 
     wss.clients.forEach((ws) => {
@@ -848,8 +872,7 @@ export async function stopServer(): Promise<void> {
 
     wss.close(() => {
       server.close(() => {
-        console.log("Server stopped");
-        resolve();
+        gracefulResolve();
       });
     });
   });
