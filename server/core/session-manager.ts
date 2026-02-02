@@ -427,6 +427,11 @@ class SessionManager extends EventEmitter {
   private sessions: Map<string, ManagedSession> = new Map();
   private clientSessions: Map<string, string> = new Map(); // clientId -> sessionName
 
+  // Broadcast session list changes to all connected clients
+  private broadcastSessionsUpdate(): void {
+    this.emit("sessions_changed");
+  }
+
   getOrCreateSession(name: string, createdBy: string = "web"): ManagedSession {
     // Check if session already exists in memory
     let session = this.sessions.get(name);
@@ -440,6 +445,9 @@ class SessionManager extends EventEmitter {
     // Create managed session with SDK session ID for resume capability
     session = new ManagedSession(dbSession.id, dbSession.name, this, dbSession.sdk_session_id);
     this.sessions.set(name, session);
+
+    // Broadcast session list update for new sessions
+    this.broadcastSessionsUpdate();
 
     return session;
   }
@@ -460,19 +468,35 @@ class SessionManager extends EventEmitter {
       session.close();
       this.sessions.delete(name);
     }
-    return sessionRepo.archiveByName(name);
+    const result = sessionRepo.archiveByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   unarchiveSession(name: string): boolean {
-    return sessionRepo.unarchiveByName(name);
+    const result = sessionRepo.unarchiveByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   pinSession(name: string): boolean {
-    return sessionRepo.pinByName(name);
+    const result = sessionRepo.pinByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   unpinSession(name: string): boolean {
-    return sessionRepo.unpinByName(name);
+    const result = sessionRepo.unpinByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   getSessionMessages(sessionName: string): ChatMessage[] {
@@ -536,6 +560,7 @@ class SessionManager extends EventEmitter {
       return false;
     }
     sessionRepo.updateTitle(dbSession.id, newTitle);
+    this.broadcastSessionsUpdate();
     return true;
   }
 
@@ -549,7 +574,11 @@ class SessionManager extends EventEmitter {
     // Clear Telegram message session mappings for this session
     messageSessionTracker.clearSessionMappings(name);
 
-    return sessionRepo.deleteByName(name);
+    const result = sessionRepo.deleteByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   // Clean up inactive sessions (no subscribers)

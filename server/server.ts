@@ -669,6 +669,22 @@ export async function startServer(): Promise<void> {
     server = createServer(app);
     wss = new WebSocketServer({ server, path: "/ws" });
 
+    // Listen for session changes and broadcast to all connected clients
+    sessionManager.on("sessions_changed", () => {
+      const sessions = sessionManager.listSessions();
+      const archivedSessions = sessionManager.listSessions({ archived: true });
+      const message = JSON.stringify({
+        type: "sessions_list",
+        sessions,
+        archivedSessions,
+      });
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    });
+
     wss.on("connection", (ws: WSClient, req) => {
       // Check auth via query parameter
       const url = new URL(req.url || "", `http://${req.headers.host}`);
