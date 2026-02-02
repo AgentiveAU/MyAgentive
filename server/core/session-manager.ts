@@ -123,9 +123,17 @@ class ManagedSession {
 
       // Emit activity event for the error
       this.emitActivity("error", `Session error: ${(error as Error).message}`);
+
+      // Clear the stale SDK session ID and reset so next message uses a fresh session (fixes issue #78)
+      this.sdkSessionId = null;
+      sessionRepo.clearSdkSessionId(this.sessionId);
+      await this.resetAgentSession();
     } finally {
       // Reset listening state so session can recover
       this.isListening = false;
+      // Clear processing state to prevent session getting stuck if SDK crashes
+      // before sending a result message (fixes issue #78)
+      this.isProcessing = false;
     }
   }
 
