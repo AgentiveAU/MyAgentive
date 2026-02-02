@@ -230,13 +230,13 @@ app.delete("/api/sessions/:name", authMiddleware, (req, res) => {
 });
 
 app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
-  const { archived, title } = req.body;
+  const { archived, title, pinned } = req.body;
   const sessionName = req.params.name;
 
   // Validate: at least one field must be provided
-  if (typeof archived !== "boolean" && typeof title !== "string") {
+  if (typeof archived !== "boolean" && typeof title !== "string" && typeof pinned !== "boolean") {
     return res.status(400).json({
-      error: "Invalid request: provide 'archived' (boolean) or 'title' (string)"
+      error: "Invalid request: provide 'archived' (boolean), 'title' (string), or 'pinned' (boolean)"
     });
   }
 
@@ -255,6 +255,19 @@ app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
       success = sessionManager.archiveSession(sessionName);
     } else {
       success = sessionManager.unarchiveSession(sessionName);
+    }
+    if (!success) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+  }
+
+  // Handle pin/unpin
+  if (typeof pinned === "boolean") {
+    let success: boolean;
+    if (pinned) {
+      success = sessionManager.pinSession(sessionName);
+    } else {
+      success = sessionManager.unpinSession(sessionName);
     }
     if (!success) {
       return res.status(404).json({ error: "Session not found" });

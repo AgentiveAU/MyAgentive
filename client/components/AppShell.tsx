@@ -15,6 +15,7 @@ interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 interface AppShellProps {
@@ -29,6 +30,7 @@ interface AppShellProps {
   onRenameSession: (name: string, newTitle: string) => void;
   onArchiveSession: (name: string) => void;
   onUnarchiveSession: (name: string) => void;
+  onPinSession: (name: string, pinned: boolean) => void;
   onDeleteSession: (name: string) => void;
   onLogout: () => void;
   agentId?: string | null;
@@ -46,6 +48,7 @@ export function AppShell({
   onRenameSession,
   onArchiveSession,
   onUnarchiveSession,
+  onPinSession,
   onDeleteSession,
   onLogout,
   agentId,
@@ -103,6 +106,7 @@ export function AppShell({
     onRenameSession,
     onArchiveSession,
     onUnarchiveSession,
+    onPinSession,
     onDeleteSession,
     agentId,
     // Pass collapse control to sidebar

@@ -20,6 +20,7 @@ interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 interface SidebarProps {
@@ -32,6 +33,7 @@ interface SidebarProps {
   onRenameSession: (name: string, newTitle: string) => void;
   onArchiveSession: (name: string) => void;
   onUnarchiveSession: (name: string) => void;
+  onPinSession: (name: string, pinned: boolean) => void;
   onDeleteSession: (name: string) => void;
   agentId?: string | null;
   // Desktop collapse control
@@ -49,6 +51,7 @@ export function Sidebar({
   onRenameSession,
   onArchiveSession,
   onUnarchiveSession,
+  onPinSession,
   onDeleteSession,
   agentId,
   isCollapsed,
@@ -221,6 +224,7 @@ export function Sidebar({
                       onClick={() => onSwitchSession(session.name)}
                       onRename={onRenameSession}
                       onArchive={onArchiveSession}
+                      onPin={onPinSession}
                       onDelete={onDeleteSession}
                     />
                   ))

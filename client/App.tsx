@@ -15,6 +15,7 @@ interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 interface Message {
@@ -336,6 +337,23 @@ export default function App() {
     }
   };
 
+  // Pin or unpin session
+  const pinSession = async (name: string, pinned: boolean) => {
+    try {
+      await fetch(`${API_BASE}/sessions/${name}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pinned }),
+      });
+      await fetchSessions();
+      toast.success(pinned ? "Session pinned" : "Session unpinned");
+    } catch (error) {
+      console.error("Failed to pin/unpin session:", error);
+      toast.error("Failed to update session");
+    }
+  };
+
   // Rename session
   const renameSession = async (name: string, newTitle: string) => {
     try {
@@ -475,6 +493,7 @@ export default function App() {
         onRenameSession={renameSession}
         onArchiveSession={archiveSession}
         onUnarchiveSession={unarchiveSession}
+        onPinSession={pinSession}
         onDeleteSession={deleteSession}
         onLogout={handleLogout}
         agentId={agentId}
