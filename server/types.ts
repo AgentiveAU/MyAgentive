@@ -17,6 +17,7 @@ export interface SessionInfo {
   updatedAt: string;
   messageCount?: number;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 // Message stored in database

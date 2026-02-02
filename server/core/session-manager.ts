@@ -47,6 +47,7 @@ function toSessionInfo(dbSession: any): SessionInfo {
     createdAt: dbSession.created_at,
     updatedAt: dbSession.updated_at,
     archived: dbSession.archived === 1,
+    pinned: dbSession.pinned === 1,
   };
 }
 
@@ -464,6 +465,14 @@ class SessionManager extends EventEmitter {
 
   unarchiveSession(name: string): boolean {
     return sessionRepo.unarchiveByName(name);
+  }
+
+  pinSession(name: string): boolean {
+    return sessionRepo.pinByName(name);
+  }
+
+  unpinSession(name: string): boolean {
+    return sessionRepo.unpinByName(name);
   }
 
   getSessionMessages(sessionName: string): ChatMessage[] {
