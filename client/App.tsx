@@ -7,6 +7,7 @@ import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { useAuth } from "./hooks/useAuth";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
+import { deleteDraft } from "./lib/draft-storage";
 
 interface Session {
   id: string;
@@ -293,6 +294,9 @@ export default function App() {
       setCurrentSessionName(null);
       setMessages([]);
     }
+
+    // Clear any saved draft for this session (#93)
+    deleteDraft(name);
 
     try {
       const res = await fetch(`${API_BASE}/sessions/${name}`, {
