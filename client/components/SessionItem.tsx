@@ -7,6 +7,8 @@ import {
   ArchiveX,
   Trash2,
   ArchiveRestore,
+  Pin,
+  PinOff,
 } from "lucide-react";
 
 // Simple relative time formatter
@@ -55,6 +57,7 @@ interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 interface SessionItemProps {
@@ -65,6 +68,7 @@ interface SessionItemProps {
   onRename?: (name: string, newTitle: string) => void;
   onArchive?: (name: string) => void;
   onUnarchive?: (name: string) => void;
+  onPin?: (name: string, pinned: boolean) => void;
   onDelete?: (name: string) => void;
 }
 
@@ -76,6 +80,7 @@ export function SessionItem({
   onRename,
   onArchive,
   onUnarchive,
+  onPin,
   onDelete,
 }: SessionItemProps) {
   const [isRenaming, setIsRenaming] = useState(false);
@@ -130,6 +135,8 @@ export function SessionItem({
       >
         {isArchived ? (
           <Archive className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : session.pinned ? (
+          <Pin className="h-4 w-4 shrink-0 text-primary" />
         ) : (
           <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
@@ -200,6 +207,26 @@ export function SessionItem({
                   >
                     <Pencil className="h-4 w-4 mr-2" />
                     Rename
+                  </DropdownMenuItem>
+                )}
+                {onPin && (
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPin(session.name, !session.pinned);
+                    }}
+                  >
+                    {session.pinned ? (
+                      <>
+                        <PinOff className="h-4 w-4 mr-2" />
+                        Unpin
+                      </>
+                    ) : (
+                      <>
+                        <Pin className="h-4 w-4 mr-2" />
+                        Pin
+                      </>
+                    )}
                   </DropdownMenuItem>
                 )}
                 {onArchive && (

@@ -9,6 +9,7 @@ export interface Session {
   updated_at: string;
   created_by: string;
   archived: number; // SQLite uses 0/1 for boolean
+  pinned: number; // SQLite uses 0/1 for boolean
   sdk_session_id: string | null; // Claude Agent SDK session ID for resume
 }
 
@@ -79,44 +80,81 @@ export const sessionRepo = {
     // Default to showing non-archived sessions
     const archived = options.archived ?? false;
 
+    // Sort: pinned first, then by updated_at
     return db
-      .prepare("SELECT * FROM sessions WHERE archived = ? ORDER BY updated_at DESC")
+      .prepare("SELECT * FROM sessions WHERE archived = ? ORDER BY pinned DESC, updated_at DESC")
       .all(archived ? 1 : 0) as Session[];
   },
 
   archive(id: string): boolean {
     const db = getDatabase();
-    const now = new Date().toISOString();
+    // Clear pinned status when archiving, don't update updated_at (preserves sort order)
     const result = db.prepare(
-      "UPDATE sessions SET archived = 1, updated_at = ? WHERE id = ?"
-    ).run(now, id);
+      "UPDATE sessions SET archived = 1, pinned = 0 WHERE id = ?"
+    ).run(id);
     return result.changes > 0;
   },
 
   archiveByName(name: string): boolean {
     const db = getDatabase();
-    const now = new Date().toISOString();
+    // Clear pinned status when archiving, don't update updated_at (preserves sort order)
     const result = db.prepare(
-      "UPDATE sessions SET archived = 1, updated_at = ? WHERE name = ?"
-    ).run(now, name);
+      "UPDATE sessions SET archived = 1, pinned = 0 WHERE name = ?"
+    ).run(name);
     return result.changes > 0;
   },
 
   unarchive(id: string): boolean {
     const db = getDatabase();
-    const now = new Date().toISOString();
+    // Don't update updated_at so session returns to its original position
     const result = db.prepare(
-      "UPDATE sessions SET archived = 0, updated_at = ? WHERE id = ?"
-    ).run(now, id);
+      "UPDATE sessions SET archived = 0 WHERE id = ?"
+    ).run(id);
     return result.changes > 0;
   },
 
   unarchiveByName(name: string): boolean {
     const db = getDatabase();
-    const now = new Date().toISOString();
+    // Don't update updated_at so session returns to its original position
     const result = db.prepare(
-      "UPDATE sessions SET archived = 0, updated_at = ? WHERE name = ?"
-    ).run(now, name);
+      "UPDATE sessions SET archived = 0 WHERE name = ?"
+    ).run(name);
+    return result.changes > 0;
+  },
+
+  pin(id: string): boolean {
+    const db = getDatabase();
+    // Don't update updated_at - sort order based on message activity only
+    const result = db.prepare(
+      "UPDATE sessions SET pinned = 1 WHERE id = ?"
+    ).run(id);
+    return result.changes > 0;
+  },
+
+  pinByName(name: string): boolean {
+    const db = getDatabase();
+    // Don't update updated_at - sort order based on message activity only
+    const result = db.prepare(
+      "UPDATE sessions SET pinned = 1 WHERE name = ?"
+    ).run(name);
+    return result.changes > 0;
+  },
+
+  unpin(id: string): boolean {
+    const db = getDatabase();
+    // Don't update updated_at - sort order based on message activity only
+    const result = db.prepare(
+      "UPDATE sessions SET pinned = 0 WHERE id = ?"
+    ).run(id);
+    return result.changes > 0;
+  },
+
+  unpinByName(name: string): boolean {
+    const db = getDatabase();
+    // Don't update updated_at - sort order based on message activity only
+    const result = db.prepare(
+      "UPDATE sessions SET pinned = 0 WHERE name = ?"
+    ).run(name);
     return result.changes > 0;
   },
 

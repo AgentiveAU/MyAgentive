@@ -230,13 +230,13 @@ app.delete("/api/sessions/:name", authMiddleware, (req, res) => {
 });
 
 app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
-  const { archived, title } = req.body;
+  const { archived, title, pinned } = req.body;
   const sessionName = req.params.name;
 
   // Validate: at least one field must be provided
-  if (typeof archived !== "boolean" && typeof title !== "string") {
+  if (typeof archived !== "boolean" && typeof title !== "string" && typeof pinned !== "boolean") {
     return res.status(400).json({
-      error: "Invalid request: provide 'archived' (boolean) or 'title' (string)"
+      error: "Invalid request: provide 'archived' (boolean), 'title' (string), or 'pinned' (boolean)"
     });
   }
 
@@ -255,6 +255,19 @@ app.patch("/api/sessions/:name", authMiddleware, (req, res) => {
       success = sessionManager.archiveSession(sessionName);
     } else {
       success = sessionManager.unarchiveSession(sessionName);
+    }
+    if (!success) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+  }
+
+  // Handle pin/unpin
+  if (typeof pinned === "boolean") {
+    let success: boolean;
+    if (pinned) {
+      success = sessionManager.pinSession(sessionName);
+    } else {
+      success = sessionManager.unpinSession(sessionName);
     }
     if (!success) {
       return res.status(404).json({ error: "Session not found" });
@@ -656,6 +669,22 @@ export async function startServer(): Promise<void> {
     server = createServer(app);
     wss = new WebSocketServer({ server, path: "/ws" });
 
+    // Listen for session changes and broadcast to all connected clients
+    sessionManager.on("sessions_changed", () => {
+      const sessions = sessionManager.listSessions();
+      const archivedSessions = sessionManager.listSessions({ archived: true });
+      const message = JSON.stringify({
+        type: "sessions_list",
+        sessions,
+        archivedSessions,
+      });
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    });
+
     wss.on("connection", (ws: WSClient, req) => {
       // Check auth via query parameter
       const url = new URL(req.url || "", `http://${req.headers.host}`);
@@ -810,7 +839,31 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
 }
 
 export async function stopServer(): Promise<void> {
+  const SHUTDOWN_TIMEOUT_MS = 10000; // 10 seconds
+
   return new Promise((resolve) => {
+    let resolved = false;
+
+    const forceResolve = () => {
+      if (!resolved) {
+        resolved = true;
+        console.warn("Server shutdown timed out, forcing termination");
+        resolve();
+      }
+    };
+
+    const gracefulResolve = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeoutId);
+        console.log("Server stopped gracefully");
+        resolve();
+      }
+    };
+
+    // Set timeout for forced shutdown
+    const timeoutId = setTimeout(forceResolve, SHUTDOWN_TIMEOUT_MS);
+
     clearInterval(heartbeatInterval);
 
     wss.clients.forEach((ws) => {
@@ -819,8 +872,7 @@ export async function stopServer(): Promise<void> {
 
     wss.close(() => {
       server.close(() => {
-        console.log("Server stopped");
-        resolve();
+        gracefulResolve();
       });
     });
   });

@@ -17,6 +17,7 @@ export interface SessionInfo {
   updatedAt: string;
   messageCount?: number;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 // Message stored in database
@@ -108,6 +109,7 @@ export interface WSErrorMessage {
 export interface WSSessionsListMessage {
   type: "sessions_list";
   sessions: SessionInfo[];
+  archivedSessions: SessionInfo[];
 }
 
 export interface WSPongMessage {

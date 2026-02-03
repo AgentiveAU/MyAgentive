@@ -47,6 +47,7 @@ function toSessionInfo(dbSession: any): SessionInfo {
     createdAt: dbSession.created_at,
     updatedAt: dbSession.updated_at,
     archived: dbSession.archived === 1,
+    pinned: dbSession.pinned === 1,
   };
 }
 
@@ -123,9 +124,17 @@ class ManagedSession {
 
       // Emit activity event for the error
       this.emitActivity("error", `Session error: ${(error as Error).message}`);
+
+      // Clear the stale SDK session ID and reset so next message uses a fresh session (fixes issue #78)
+      this.sdkSessionId = null;
+      sessionRepo.clearSdkSessionId(this.sessionId);
+      await this.resetAgentSession();
     } finally {
       // Reset listening state so session can recover
       this.isListening = false;
+      // Clear processing state to prevent session getting stuck if SDK crashes
+      // before sending a result message (fixes issue #78)
+      this.isProcessing = false;
     }
   }
 
@@ -418,6 +427,11 @@ class SessionManager extends EventEmitter {
   private sessions: Map<string, ManagedSession> = new Map();
   private clientSessions: Map<string, string> = new Map(); // clientId -> sessionName
 
+  // Broadcast session list changes to all connected clients
+  private broadcastSessionsUpdate(): void {
+    this.emit("sessions_changed");
+  }
+
   getOrCreateSession(name: string, createdBy: string = "web"): ManagedSession {
     // Check if session already exists in memory
     let session = this.sessions.get(name);
@@ -431,6 +445,9 @@ class SessionManager extends EventEmitter {
     // Create managed session with SDK session ID for resume capability
     session = new ManagedSession(dbSession.id, dbSession.name, this, dbSession.sdk_session_id);
     this.sessions.set(name, session);
+
+    // Broadcast session list update for new sessions
+    this.broadcastSessionsUpdate();
 
     return session;
   }
@@ -451,11 +468,35 @@ class SessionManager extends EventEmitter {
       session.close();
       this.sessions.delete(name);
     }
-    return sessionRepo.archiveByName(name);
+    const result = sessionRepo.archiveByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   unarchiveSession(name: string): boolean {
-    return sessionRepo.unarchiveByName(name);
+    const result = sessionRepo.unarchiveByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
+  }
+
+  pinSession(name: string): boolean {
+    const result = sessionRepo.pinByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
+  }
+
+  unpinSession(name: string): boolean {
+    const result = sessionRepo.unpinByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   getSessionMessages(sessionName: string): ChatMessage[] {
@@ -519,6 +560,7 @@ class SessionManager extends EventEmitter {
       return false;
     }
     sessionRepo.updateTitle(dbSession.id, newTitle);
+    this.broadcastSessionsUpdate();
     return true;
   }
 
@@ -532,7 +574,11 @@ class SessionManager extends EventEmitter {
     // Clear Telegram message session mappings for this session
     messageSessionTracker.clearSessionMappings(name);
 
-    return sessionRepo.deleteByName(name);
+    const result = sessionRepo.deleteByName(name);
+    if (result) {
+      this.broadcastSessionsUpdate();
+    }
+    return result;
   }
 
   // Clean up inactive sessions (no subscribers)

@@ -7,6 +7,7 @@ import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { useAuth } from "./hooks/useAuth";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
+import { deleteDraft } from "./lib/draft-storage";
 
 interface Session {
   id: string;
@@ -15,6 +16,7 @@ interface Session {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  pinned?: boolean;
 }
 
 interface Message {
@@ -152,7 +154,13 @@ export default function App() {
 
       case "result":
         setIsLoading(false);
-        fetchSessions();
+        // Session list updates are now handled via real-time WebSocket broadcasts
+        break;
+
+      case "sessions_list":
+        // Real-time session list update from server
+        setSessions(message.sessions);
+        setArchivedSessions(message.archivedSessions);
         break;
 
       case "session_switched":
@@ -226,9 +234,10 @@ export default function App() {
   }, [lastJsonMessage, handleWSMessage]);
 
   // Fetch all sessions (active and archived)
-  const fetchSessions = async () => {
+  // showLoading: only show skeleton loader on initial load, not on refreshes
+  const fetchSessions = async (showLoading = false) => {
     try {
-      setSessionsLoading(true);
+      if (showLoading) setSessionsLoading(true);
       const [activeRes, archivedRes] = await Promise.all([
         fetch(`${API_BASE}/sessions`, { credentials: "include" }),
         fetch(`${API_BASE}/sessions?archived=1`, { credentials: "include" }),
@@ -264,7 +273,7 @@ export default function App() {
       }
 
       const session = await res.json();
-      await fetchSessions();
+      // Session list will be updated via WebSocket broadcast
       switchSession(session.name);
       toast.success("Session created");
     } catch (error) {
@@ -275,18 +284,34 @@ export default function App() {
 
   // Delete session
   const deleteSession = async (name: string) => {
+    // Optimistic update: remove from local state immediately
+    const previousSessions = sessions;
+    const previousArchivedSessions = archivedSessions;
+    setSessions((prev) => prev.filter((s) => s.name !== name));
+    setArchivedSessions((prev) => prev.filter((s) => s.name !== name));
+
+    if (currentSessionName === name) {
+      setCurrentSessionName(null);
+      setMessages([]);
+    }
+
+    // Clear any saved draft for this session (#93)
+    deleteDraft(name);
+
     try {
-      await fetch(`${API_BASE}/sessions/${name}`, {
+      const res = await fetch(`${API_BASE}/sessions/${name}`, {
         method: "DELETE",
         credentials: "include",
       });
-      await fetchSessions();
-      if (currentSessionName === name) {
-        setCurrentSessionName(null);
-        setMessages([]);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
+      // Server will broadcast updated session list via WebSocket
       toast.success("Session deleted");
     } catch (error) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
+      setArchivedSessions(previousArchivedSessions);
       console.error("Failed to delete session:", error);
       toast.error("Failed to delete session");
     }
@@ -294,26 +319,43 @@ export default function App() {
 
   // Archive session
   const archiveSession = async (name: string) => {
+    // Optimistic update: move from active to archived immediately
+    const sessionToArchive = sessions.find((s) => s.name === name);
+    if (!sessionToArchive) return;
+
+    const previousSessions = sessions;
+    const previousArchivedSessions = archivedSessions;
+
+    setSessions((prev) => prev.filter((s) => s.name !== name));
+    setArchivedSessions((prev) => [...prev, { ...sessionToArchive, archived: true }]);
+
+    // If we archived the current session, switch to the next active one
+    if (currentSessionName === name) {
+      const remainingActive = sessions.filter((s) => s.name !== name);
+      if (remainingActive.length > 0) {
+        switchSession(remainingActive[0].name);
+      } else {
+        setCurrentSessionName(null);
+        setMessages([]);
+      }
+    }
+
     try {
-      await fetch(`${API_BASE}/sessions/${name}`, {
+      const res = await fetch(`${API_BASE}/sessions/${name}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ archived: true }),
       });
-      await fetchSessions();
-      // If we archived the current session, switch to the next active one
-      if (currentSessionName === name) {
-        const remainingActive = sessions.filter((s) => s.name !== name);
-        if (remainingActive.length > 0) {
-          switchSession(remainingActive[0].name);
-        } else {
-          setCurrentSessionName(null);
-          setMessages([]);
-        }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
+      // Server will broadcast updated session list via WebSocket
       toast.success("Session archived");
     } catch (error) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
+      setArchivedSessions(previousArchivedSessions);
       console.error("Failed to archive session:", error);
       toast.error("Failed to archive session");
     }
@@ -321,33 +363,100 @@ export default function App() {
 
   // Unarchive session
   const unarchiveSession = async (name: string) => {
+    // Optimistic update: move from archived to active immediately
+    const sessionToRestore = archivedSessions.find((s) => s.name === name);
+    if (!sessionToRestore) return;
+
+    const previousSessions = sessions;
+    const previousArchivedSessions = archivedSessions;
+
+    setArchivedSessions((prev) => prev.filter((s) => s.name !== name));
+    setSessions((prev) => [...prev, { ...sessionToRestore, archived: false }]);
+
     try {
-      await fetch(`${API_BASE}/sessions/${name}`, {
+      const res = await fetch(`${API_BASE}/sessions/${name}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ archived: false }),
       });
-      await fetchSessions();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      // Server will broadcast updated session list via WebSocket
       toast.success("Session restored");
     } catch (error) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
+      setArchivedSessions(previousArchivedSessions);
       console.error("Failed to unarchive session:", error);
       toast.error("Failed to restore session");
     }
   };
 
+  // Pin or unpin session
+  const pinSession = async (name: string, pinned: boolean) => {
+    // Optimistic update: update pinned state in local state immediately
+    const previousSessions = sessions;
+    const previousArchivedSessions = archivedSessions;
+
+    setSessions((prev) =>
+      prev.map((s) => (s.name === name ? { ...s, pinned } : s))
+    );
+    setArchivedSessions((prev) =>
+      prev.map((s) => (s.name === name ? { ...s, pinned } : s))
+    );
+
+    try {
+      const res = await fetch(`${API_BASE}/sessions/${name}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pinned }),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      // Server will broadcast updated session list via WebSocket
+      toast.success(pinned ? "Session pinned" : "Session unpinned");
+    } catch (error) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
+      setArchivedSessions(previousArchivedSessions);
+      console.error("Failed to pin/unpin session:", error);
+      toast.error("Failed to update session");
+    }
+  };
+
   // Rename session
   const renameSession = async (name: string, newTitle: string) => {
+    // Optimistic update: update title in local state immediately
+    const previousSessions = sessions;
+    const previousArchivedSessions = archivedSessions;
+
+    setSessions((prev) =>
+      prev.map((s) => (s.name === name ? { ...s, title: newTitle } : s))
+    );
+    setArchivedSessions((prev) =>
+      prev.map((s) => (s.name === name ? { ...s, title: newTitle } : s))
+    );
+
     try {
-      await fetch(`${API_BASE}/sessions/${name}`, {
+      const res = await fetch(`${API_BASE}/sessions/${name}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ title: newTitle }),
       });
-      await fetchSessions();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      // Server will broadcast updated session list via WebSocket
       toast.success("Session renamed");
     } catch (error) {
+      // Revert optimistic update on failure
+      setSessions(previousSessions);
+      setArchivedSessions(previousArchivedSessions);
       console.error("Failed to rename session:", error);
       toast.error("Failed to rename session");
     }
@@ -397,7 +506,7 @@ export default function App() {
   // Initial fetch when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchSessions();
+      fetchSessions(true); // Show loading on initial fetch
     }
   }, [isAuthenticated]);
 
@@ -433,6 +542,8 @@ export default function App() {
     if (readyState === ReadyState.OPEN) {
       if (hasPreviouslyConnected) {
         toast.success("Reconnected to server", { duration: 2000 });
+        // Clear loading state on reconnect - the previous request was lost (fixes #78 frontend)
+        setIsLoading(false);
       }
       sessionStorage.setItem("ws_connected", "true");
       toast.dismiss("connecting");
@@ -475,6 +586,7 @@ export default function App() {
         onRenameSession={renameSession}
         onArchiveSession={archiveSession}
         onUnarchiveSession={unarchiveSession}
+        onPinSession={pinSession}
         onDeleteSession={deleteSession}
         onLogout={handleLogout}
         agentId={agentId}
