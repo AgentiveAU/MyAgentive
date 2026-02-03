@@ -538,6 +538,8 @@ export default function App() {
     if (readyState === ReadyState.OPEN) {
       if (hasPreviouslyConnected) {
         toast.success("Reconnected to server", { duration: 2000 });
+        // Clear loading state on reconnect - the previous request was lost (fixes #78 frontend)
+        setIsLoading(false);
       }
       sessionStorage.setItem("ws_connected", "true");
       toast.dismiss("connecting");
