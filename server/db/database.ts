@@ -170,6 +170,13 @@ ALTER TABLE sessions ADD COLUMN sdk_session_id TEXT;
 -- Index for quick lookups when resuming sessions
 CREATE INDEX idx_sessions_sdk_session ON sessions(sdk_session_id) WHERE sdk_session_id IS NOT NULL;
 `,
+  "007-add-pinned.sql": `
+-- Add pinned column to sessions table
+ALTER TABLE sessions ADD COLUMN pinned INTEGER DEFAULT 0;
+
+-- Create index for efficient sorting (pinned first, then by updated_at)
+CREATE INDEX idx_sessions_pinned ON sessions(pinned DESC, updated_at DESC);
+`,
 };
 
 export function getDatabase(): Database {
