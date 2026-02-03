@@ -52,6 +52,19 @@ export function ChatInput({
   const audioUrlRef = useRef<string | null>(null);
   const cancelledRef = useRef(false);
 
+  // Clear input state when switching sessions (#92)
+  useEffect(() => {
+    setInput("");
+    setSelectedFile(null);
+    setAudioBlob(null);
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    setAudioUrl(null);
+    setRecordingDuration(0);
+  }, [sessionName]);
+
   // When a suggested prompt is provided, fill the input
   useEffect(() => {
     if (suggestedPrompt) {
