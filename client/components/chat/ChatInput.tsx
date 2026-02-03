@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Loader2, Paperclip, X, File as FileIcon, Image, Film, Music, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { saveDraft, loadDraft, deleteDraft } from "../../lib/draft-storage";
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -51,19 +52,82 @@ export function ChatInput({
   const audioChunksRef = useRef<Blob[]>([]);
   const audioUrlRef = useRef<string | null>(null);
   const cancelledRef = useRef(false);
+  const prevSessionRef = useRef<string | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Clear input state when switching sessions (#92)
+  // Save and restore drafts when switching sessions (#93)
   useEffect(() => {
-    setInput("");
-    setSelectedFile(null);
-    setAudioBlob(null);
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-    setAudioUrl(null);
-    setRecordingDuration(0);
+    const handleSessionSwitch = async () => {
+      // Save draft for previous session (if not initial mount and had content)
+      if (!isInitialMount.current && prevSessionRef.current) {
+        const prevInput = input;
+        const prevFile = selectedFile?.file || null;
+        const prevAudio = audioBlob;
+        // Only save if there's actual content
+        if (prevInput.trim() || prevFile || prevAudio) {
+          await saveDraft(prevSessionRef.current, prevInput, prevFile, prevAudio);
+        } else {
+          // Clear any existing draft if input is now empty
+          await deleteDraft(prevSessionRef.current);
+        }
+      }
+
+      // Clear current state
+      setInput("");
+      if (selectedFile?.preview) {
+        URL.revokeObjectURL(selectedFile.preview);
+      }
+      setSelectedFile(null);
+      setAudioBlob(null);
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      setAudioUrl(null);
+      setRecordingDuration(0);
+
+      // Load draft for new session
+      if (sessionName) {
+        const draft = await loadDraft(sessionName);
+        if (draft) {
+          setInput(draft.input);
+          if (draft.file) {
+            const preview = draft.file.type.startsWith("image/")
+              ? URL.createObjectURL(draft.file)
+              : undefined;
+            setSelectedFile({ file: draft.file, preview });
+          }
+          if (draft.audioBlob) {
+            setAudioBlob(draft.audioBlob);
+            const url = URL.createObjectURL(draft.audioBlob);
+            setAudioUrl(url);
+            audioUrlRef.current = url;
+          }
+        }
+      }
+
+      // Update refs
+      prevSessionRef.current = sessionName || null;
+      isInitialMount.current = false;
+    };
+
+    handleSessionSwitch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionName]);
+
+  // Auto-save draft when content changes (debounced)
+  useEffect(() => {
+    if (!sessionName || isInitialMount.current) return;
+
+    const timeoutId = setTimeout(() => {
+      const file = selectedFile?.file || null;
+      if (input.trim() || file || audioBlob) {
+        saveDraft(sessionName, input, file, audioBlob);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [input, selectedFile, audioBlob, sessionName]);
 
   // When a suggested prompt is provided, fill the input
   useEffect(() => {
@@ -189,6 +253,10 @@ export function ChatInput({
 
       if (messageContent) {
         onSend(messageContent);
+        // Clear draft after successful send
+        if (sessionName) {
+          deleteDraft(sessionName);
+        }
       }
 
       setInput("");
@@ -376,6 +444,10 @@ export function ChatInput({
         }
         const message = `${attachmentTag}${agentContext}${transcriptionText}`;
         onSend(message);
+        // Clear draft after successful send
+        if (sessionName) {
+          deleteDraft(sessionName);
+        }
       }
 
       // Cleanup
