@@ -37,9 +37,10 @@ mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64"
 echo "Building frontend..."
 bunx vite build
 
-# Build macOS binary
+# Build macOS binary (Apple Silicon M1/M2/M3/M4/M5)
+# Uses --target for cross-compilation so builds work from any platform
 echo "Building macOS binary..."
-bun build --compile server/index.ts --outfile dist/myagentive
+bun build --compile --target=bun-darwin-arm64 server/index.ts --outfile dist/myagentive
 
 # Build Linux binary
 echo "Building Linux x64 binary..."
