@@ -115,8 +115,8 @@ function getSystemPromptPath(): string {
 function getDefaultPromptPath(): string {
   const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
   if (isCompiledBinary) {
-    // Binary: default prompt alongside executable
-    return path.join(path.dirname(process.execPath), "default-system-prompt.md");
+    // Binary: default prompt in install directory (not bin/)
+    return path.join(getMyAgentiveHome(), "default-system-prompt.md");
   }
   // Development: in server/ directory
   return path.resolve(import.meta.dir, "../default-system-prompt.md");
