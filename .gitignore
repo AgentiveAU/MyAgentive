@@ -26,6 +26,7 @@ dist/
 
 # Release binaries and archives (scripts kept in repo)
 release/
+release-package/
 
 # Logs
 logs/
