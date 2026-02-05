@@ -35,17 +35,21 @@ if [ -f "$INSTALL_DIR/myagentive" ] && [ ! -L "$INSTALL_DIR/myagentive" ]; then
     rm -f "$INSTALL_DIR/myagentivectl"
 fi
 
-# Copy files with force overwrite
-cp -rf myagentive myagentivectl save-for-download "$BIN_DIR/"
+# Copy files with force overwrite (remove old files first to avoid cp alias issues)
+\cp -rf myagentive myagentivectl save-for-download "$BIN_DIR/"
 if [ -f "send-file" ]; then
-    cp -rf send-file "$BIN_DIR/"
+    \cp -rf send-file "$BIN_DIR/"
 fi
-cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
-cp -rf dist "$INSTALL_DIR/"
+
+# Always update default-system-prompt.md (enables automatic prompt upgrades)
+rm -f "$INSTALL_DIR/default-system-prompt.md"
+\cp -f default-system-prompt.md "$INSTALL_DIR/"
+\cp -rf LICENSE install.sh "$INSTALL_DIR/"
+\cp -rf dist "$INSTALL_DIR/"
 # Copy skills to discoverable location
 mkdir -p "$INSTALL_DIR/skills"
 if [ -d "skills" ]; then
-    cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
+    \cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
 fi
 
 # Create .claude directory and symlink for SDK compatibility
