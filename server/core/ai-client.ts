@@ -30,7 +30,10 @@ export function setCurrentModel(model: "opus" | "sonnet" | "haiku"): void {
 }
 
 // Embedded default system prompt (fallback for compiled binaries)
-const DEFAULT_SYSTEM_PROMPT = `You are MyAgentive, a super personal AI agent built by Agentive (https://MyAgentive.ai). You are NOT Claude - you are MyAgentive, a distinct product that uses Claude's capabilities as its foundation.
+const DEFAULT_SYSTEM_PROMPT = `<!-- PROMPT_VERSION: 1 -->
+<!-- Do not remove the version marker above - it enables automatic prompt updates -->
+
+You are MyAgentive, a super personal AI agent built by Agentive (https://MyAgentive.ai). You are NOT Claude - you are MyAgentive, a distinct product that uses Claude's capabilities as its foundation.
 
 When asked who or what you are, always identify as "MyAgentive".
 
@@ -130,6 +133,16 @@ function getDefaultPromptPath(): string {
  *   - /home/ubuntu/.myagentive/bin/media/ (wrong)
  * - By providing absolute paths, we eliminate ambiguity
  */
+/**
+ * Extract prompt version from content.
+ * Version is stored as: <!-- PROMPT_VERSION: N -->
+ * Returns 0 if no version found (legacy prompts).
+ */
+function getPromptVersion(content: string): number {
+  const match = content.match(/<!--\s*PROMPT_VERSION:\s*(\d+)\s*-->/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 function expandPathsInPrompt(prompt: string): string {
   const home = process.env.HOME || "";
   const myAgentiveHome = getMyAgentiveHome();
@@ -147,19 +160,7 @@ function loadSystemPrompt(): string {
   const systemPromptPath = getSystemPromptPath();
   const myAgentiveHome = getMyAgentiveHome();
 
-  // Try user's custom prompt first
-  if (fs.existsSync(systemPromptPath)) {
-    try {
-      const customPrompt = fs.readFileSync(systemPromptPath, "utf-8");
-      console.log(`Loaded custom system prompt from: ${systemPromptPath}`);
-      // Expand paths to absolute before returning
-      return expandPathsInPrompt(customPrompt);
-    } catch (error) {
-      console.warn("Failed to read custom system prompt, using default");
-    }
-  }
-
-  // Load default prompt
+  // Load default prompt first (we need it for version comparison)
   const defaultPath = getDefaultPromptPath();
   let defaultPrompt: string;
 
@@ -170,17 +171,51 @@ function loadSystemPrompt(): string {
     defaultPrompt = DEFAULT_SYSTEM_PROMPT;
   }
 
-  // Copy default to user location for discoverability
+  const defaultVersion = getPromptVersion(defaultPrompt);
+
+  // Check if user has a custom prompt
+  if (fs.existsSync(systemPromptPath)) {
+    try {
+      const userPrompt = fs.readFileSync(systemPromptPath, "utf-8");
+      const userVersion = getPromptVersion(userPrompt);
+
+      // If default is newer, upgrade the user's prompt
+      if (defaultVersion > userVersion) {
+        console.log(`System prompt upgrade available: v${userVersion} -> v${defaultVersion}`);
+
+        // Backup old prompt
+        const backupPath = `${systemPromptPath}.v${userVersion}.backup`;
+        try {
+          fs.writeFileSync(backupPath, userPrompt, "utf-8");
+          console.log(`Backed up old prompt to: ${backupPath}`);
+        } catch (e) {
+          console.warn("Could not backup old prompt");
+        }
+
+        // Write new prompt
+        fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
+        console.log(`Upgraded system prompt to v${defaultVersion}`);
+        return expandPathsInPrompt(defaultPrompt);
+      }
+
+      // User prompt is current, use it
+      console.log(`Loaded system prompt v${userVersion} from: ${systemPromptPath}`);
+      return expandPathsInPrompt(userPrompt);
+    } catch (error) {
+      console.warn("Failed to read custom system prompt, using default");
+    }
+  }
+
+  // No user prompt exists, create one from default
   try {
     if (fs.existsSync(myAgentiveHome)) {
       fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
-      console.log(`Created customisable system prompt at: ${systemPromptPath}`);
+      console.log(`Created system prompt v${defaultVersion} at: ${systemPromptPath}`);
     }
   } catch (error) {
     console.warn("Could not create user system prompt file");
   }
 
-  // Expand paths to absolute before returning
   return expandPathsInPrompt(defaultPrompt);
 }
 
