@@ -3,8 +3,19 @@ import { config } from "../config.js";
 import { sessionManager } from "../core/session-manager.js";
 import type { ActivityEvent } from "../types.js";
 
-// Create a separate bot instance for monitoring (read-only, no middleware)
-const monitorBot = new Bot(config.telegramBotToken);
+// Monitor bot instance - created lazily when Telegram is enabled
+let monitorBot: Bot | null = null;
+
+// Get or create monitor bot instance
+function getMonitorBot(): Bot | null {
+  if (!config.telegramEnabled) {
+    return null;
+  }
+  if (!monitorBot) {
+    monitorBot = new Bot(config.telegramBotToken);
+  }
+  return monitorBot;
+}
 
 // Queue for batching messages
 let messageQueue: string[] = [];
@@ -88,7 +99,9 @@ async function flushQueue(): Promise<void> {
   const text = combined.length > 4000 ? combined.substring(0, 4000) + "\n..." : combined;
 
   try {
-    await monitorBot.api.sendMessage(config.telegramMonitoringGroupId, text, {
+    const bot = getMonitorBot();
+    if (!bot) return;
+    await bot.api.sendMessage(config.telegramMonitoringGroupId, text, {
       disable_notification: true,
     });
     lastFlushTime = Date.now();
@@ -149,9 +162,11 @@ export async function sendStartupMessage(): Promise<void> {
 // Send shutdown message
 export async function sendShutdownMessage(): Promise<void> {
   if (!config.telegramMonitoringGroupId) return;
+  const bot = getMonitorBot();
+  if (!bot) return;
   const timestamp = new Date().toLocaleString();
   // Flush immediately for shutdown
-  await monitorBot.api.sendMessage(
+  await bot.api.sendMessage(
     config.telegramMonitoringGroupId,
     `🛑 MyAgentive stopped at ${timestamp}`,
     { disable_notification: true }

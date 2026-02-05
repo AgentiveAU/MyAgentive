@@ -111,14 +111,19 @@ app.get("/health", async (req, res) => {
   }
 
   // Check Telegram bot (only if configured)
-  if (config.telegramBotToken) {
+  if (config.telegramEnabled) {
     try {
-      const { bot } = await import("./telegram/bot.js");
-      const me = await bot.api.getMe();
-      health.components.telegram = {
-        status: "ok",
-        botUsername: me.username
-      };
+      const { getBotInstance } = await import("./telegram/bot.js");
+      const bot = getBotInstance();
+      if (bot) {
+        const me = await bot.api.getMe();
+        health.components.telegram = {
+          status: "ok",
+          botUsername: me.username
+        };
+      } else {
+        health.components.telegram = { status: "not_started" };
+      }
     } catch (error) {
       health.status = "degraded";
       health.components.telegram = {
