@@ -51,15 +51,33 @@ Be concise but thorough in your responses. Use Australian English spelling.
 
 ## Saving Files for User Download
 
-When creating files that the user should download, save them to ~/.myagentive/media/ subdirectories:
-- Documents, spreadsheets, and PDFs: ~/.myagentive/media/documents/
-- Images and photos: ~/.myagentive/media/photos/
-- Audio files: ~/.myagentive/media/audio/
-- Video files: ~/.myagentive/media/videos/
+When creating files that the user should download (documents, images, audio, video, etc.), you MUST use the \`save-for-download\` command to ensure the file is placed in the correct location.
 
-Files saved in ~/.myagentive/media/ will be automatically available for download in the UI. The user can access them directly from the web interface without needing to use file commands.
+**How to use:**
+\`\`\`bash
+save-for-download <source-file> [optional-filename]
+\`\`\`
 
-IMPORTANT: Always include the complete file path WITH filename in your response (e.g., ~/.myagentive/media/documents/report.pdf). This enables automatic file delivery to the user.
+**Examples:**
+\`\`\`bash
+# Save a video (auto-detects type, goes to videos/)
+save-for-download /tmp/my-video.mp4
+
+# Save with custom filename
+save-for-download /tmp/output.mp4 presentation-demo.mp4
+
+# Save a PDF (auto-detects type, goes to documents/)
+save-for-download ./report.pdf quarterly-report-2024.pdf
+\`\`\`
+
+**The command automatically:**
+- Detects file type and places in correct subdirectory (videos/, audio/, photos/, documents/)
+- Moves the file to ~/.myagentive/media/
+- Outputs the correct path for the web UI to detect
+
+**IMPORTANT:** After running save-for-download, include the output path in your response so the user can see the download link in the web UI.
+
+**DO NOT manually save files to media directories.** Always use save-for-download to ensure correct placement.
 
 ## API Keys and Configuration
 
@@ -101,6 +119,30 @@ function getDefaultPromptPath(): string {
   return path.resolve(import.meta.dir, "../default-system-prompt.md");
 }
 
+/**
+ * Expand ~ and ~/.myagentive to absolute paths in the system prompt.
+ * This ensures the agent uses the correct paths regardless of its working directory.
+ *
+ * Why this is needed:
+ * - The agent (Claude Code SDK) may expand ~ differently than expected
+ * - Production servers (Issue #97) showed agent saving to wrong directories:
+ *   - /home/ubuntu/media/ (wrong)
+ *   - /home/ubuntu/.myagentive/bin/media/ (wrong)
+ * - By providing absolute paths, we eliminate ambiguity
+ */
+function expandPathsInPrompt(prompt: string): string {
+  const home = process.env.HOME || "";
+  const myAgentiveHome = getMyAgentiveHome();
+
+  // Replace ~/.myagentive with absolute path (do this first to avoid double-replacement)
+  let expanded = prompt.replace(/~\/\.myagentive/g, myAgentiveHome);
+
+  // Replace remaining ~ with home directory
+  expanded = expanded.replace(/~\//g, home + "/");
+
+  return expanded;
+}
+
 function loadSystemPrompt(): string {
   const systemPromptPath = getSystemPromptPath();
   const myAgentiveHome = getMyAgentiveHome();
@@ -110,7 +152,8 @@ function loadSystemPrompt(): string {
     try {
       const customPrompt = fs.readFileSync(systemPromptPath, "utf-8");
       console.log(`Loaded custom system prompt from: ${systemPromptPath}`);
-      return customPrompt;
+      // Expand paths to absolute before returning
+      return expandPathsInPrompt(customPrompt);
     } catch (error) {
       console.warn("Failed to read custom system prompt, using default");
     }
@@ -137,7 +180,8 @@ function loadSystemPrompt(): string {
     console.warn("Could not create user system prompt file");
   }
 
-  return defaultPrompt;
+  // Expand paths to absolute before returning
+  return expandPathsInPrompt(defaultPrompt);
 }
 
 // Load system prompt once at startup

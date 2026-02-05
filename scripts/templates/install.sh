@@ -36,7 +36,10 @@ if [ -f "$INSTALL_DIR/myagentive" ] && [ ! -L "$INSTALL_DIR/myagentive" ]; then
 fi
 
 # Copy files with force overwrite
-cp -rf myagentive myagentivectl "$BIN_DIR/"
+cp -rf myagentive myagentivectl save-for-download "$BIN_DIR/"
+if [ -f "send-file" ]; then
+    cp -rf send-file "$BIN_DIR/"
+fi
 cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
 cp -rf dist "$INSTALL_DIR/"
 # Copy skills to discoverable location
@@ -50,10 +53,14 @@ mkdir -p "$INSTALL_DIR/.claude"
 rm -rf "$INSTALL_DIR/.claude/skills"
 ln -sf "../skills" "$INSTALL_DIR/.claude/skills"
 
-# Create symlink for CLI
+# Create symlinks for CLI and tools
 mkdir -p "${HOME}/.local/bin"
 ln -sf "$BIN_DIR/myagentive" "${HOME}/.local/bin/myagentive"
 ln -sf "$BIN_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"
+ln -sf "$BIN_DIR/save-for-download" "${HOME}/.local/bin/save-for-download"
+if [ -f "$BIN_DIR/send-file" ]; then
+    ln -sf "$BIN_DIR/send-file" "${HOME}/.local/bin/send-file"
+fi
 
 echo ""
 echo "MyAgentive v${VERSION} installed successfully!"
