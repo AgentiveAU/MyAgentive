@@ -5,6 +5,7 @@ import { AgentSession } from "./ai-client.js";
 import { sessionRepo } from "../db/repositories/session-repo.js";
 import { messageRepo } from "../db/repositories/message-repo.js";
 import { messageSessionTracker } from "../telegram/message-session-tracker.js";
+import { config } from "../config.js";
 import type {
   SessionInfo,
   ChatMessage,
@@ -92,10 +93,8 @@ class ManagedSession {
   }
 
   // Get the media directory path
-  // Uses MYAGENTIVE_HOME if set, otherwise ~/.myagentive
   private getMediaPath(): string {
-    const myAgentiveHome = process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
-    return path.join(myAgentiveHome, "media");
+    return config.mediaPath;
   }
 
   // Take snapshot of current files in media/
