@@ -93,4 +93,32 @@ export const messageRepo = {
       .get(sessionId) as { count: number };
     return result.count;
   },
+
+  // Get the most recent assistant message for a session
+  getLastAssistantMessage(sessionId: string): Message | null {
+    const db = getDatabase();
+    return db
+      .prepare(
+        `SELECT * FROM messages
+         WHERE session_id = ? AND role = 'assistant'
+         ORDER BY timestamp DESC
+         LIMIT 1`
+      )
+      .get(sessionId) as Message | null;
+  },
+
+  // Update message metadata (merges with existing metadata)
+  updateMetadata(messageId: string, newMetadata: Record<string, any>): void {
+    const db = getDatabase();
+    const message = this.getById(messageId);
+    if (!message) return;
+
+    const existingMetadata = message.metadata ? JSON.parse(message.metadata) : {};
+    const mergedMetadata = { ...existingMetadata, ...newMetadata };
+
+    db.prepare("UPDATE messages SET metadata = ? WHERE id = ?").run(
+      JSON.stringify(mergedMetadata),
+      messageId
+    );
+  },
 };

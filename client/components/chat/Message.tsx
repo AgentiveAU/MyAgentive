@@ -19,6 +19,12 @@ import { MediaPreview } from "./MediaPreview";
 import { CodeBlock } from "./CodeBlock";
 import { MermaidDiagram } from "./MermaidDiagram";
 
+interface MediaFile {
+  type: "audio" | "video" | "image" | "document";
+  filename: string;
+  webUrl: string;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant" | "tool_use";
@@ -26,6 +32,7 @@ interface Message {
   timestamp: string;
   toolName?: string;
   toolInput?: Record<string, any>;
+  mediaFiles?: MediaFile[];
 }
 
 interface MessageProps {
@@ -37,11 +44,22 @@ export function Message({ message, onRetry }: MessageProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
 
-  // Detect media files in assistant messages
+  // Combine detected media files with delivered media files
   const mediaFiles = useMemo(() => {
     if (isUser) return [];
-    return detectMediaPaths(message.content);
-  }, [message.content, isUser]);
+    const detected = detectMediaPaths(message.content);
+    const delivered = message.mediaFiles || [];
+    // Combine and deduplicate by webUrl
+    const seenUrls = new Set<string>();
+    const combined: typeof detected = [];
+    for (const media of [...detected, ...delivered]) {
+      if (!seenUrls.has(media.webUrl)) {
+        seenUrls.add(media.webUrl);
+        combined.push(media);
+      }
+    }
+    return combined;
+  }, [message.content, message.mediaFiles, isUser]);
 
   // Parse uploaded file from user messages
   const userUpload = useMemo(() => {
@@ -193,7 +211,7 @@ export function Message({ message, onRetry }: MessageProps) {
         </div>
         )}
 
-        {/* Media Files */}
+        {/* Media Files detected in message content */}
         {!isUser && mediaFiles.length > 0 && (
           <div className="space-y-2">
             {mediaFiles.map((media, index) => (

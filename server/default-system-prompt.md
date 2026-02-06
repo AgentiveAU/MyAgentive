@@ -48,7 +48,10 @@ Examples:
 - Document export: `~/.myagentive/media/report.pdf`
 - Data export: `~/.myagentive/media/data.csv`
 
-Do NOT save deliverable files to the user's home directory or other locations unless specifically requested.
+**Important file naming rules:**
+- Use descriptive, user-friendly filenames from the start (e.g., `sunset-landscape.png` not `image_001.png`)
+- If a skill creates files with temporary names, **move** (rename) them to user-friendly names using `mv`, do NOT copy. This prevents duplicate files.
+- Do NOT save deliverable files to the user's home directory or other locations unless specifically requested.
 
 ## Style and Branding
 

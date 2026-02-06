@@ -19,6 +19,12 @@ interface Session {
   pinned?: boolean;
 }
 
+interface MediaFile {
+  type: "audio" | "video" | "image" | "document";
+  filename: string;
+  webUrl: string;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant" | "tool_use";
@@ -26,6 +32,7 @@ interface Message {
   timestamp: string;
   toolName?: string;
   toolInput?: Record<string, any>;
+  mediaFiles?: MediaFile[];
 }
 
 // Use relative URLs - Vite will proxy to the backend
@@ -104,6 +111,7 @@ export default function App() {
             role: m.role,
             content: m.content,
             timestamp: m.timestamp,
+            mediaFiles: m.metadata?.mediaFiles,
           }))
         );
         break;
@@ -195,12 +203,45 @@ export default function App() {
         // Reset context info to trigger fresh update
         setContextInfo(null);
         break;
+
+      case "file_delivery":
+        // When a file is delivered, add it to the last assistant message's mediaFiles
+        setMessages((prev) => {
+          // Find the last assistant message
+          const lastAssistantIndex = prev.findLastIndex((m) => m.role === "assistant");
+          if (lastAssistantIndex === -1) return prev;
+
+          // Determine media type from filename
+          const ext = message.filename?.substring(message.filename.lastIndexOf(".")).toLowerCase() || "";
+          const typeMap: Record<string, MediaFile["type"]> = {
+            ".mp3": "audio", ".wav": "audio", ".m4a": "audio", ".ogg": "audio",
+            ".mp4": "video", ".mov": "video", ".webm": "video",
+            ".jpg": "image", ".jpeg": "image", ".png": "image", ".gif": "image", ".webp": "image",
+          };
+          const mediaType = typeMap[ext] || "document";
+
+          const mediaFile: MediaFile = {
+            type: mediaType,
+            filename: message.filename,
+            webUrl: message.webUrl,
+          };
+
+          // Update the message with the new media file
+          return prev.map((m, idx) => {
+            if (idx !== lastAssistantIndex) return m;
+            const existingMedia = m.mediaFiles || [];
+            // Avoid duplicates
+            if (existingMedia.some((f) => f.webUrl === mediaFile.webUrl)) return m;
+            return { ...m, mediaFiles: [...existingMedia, mediaFile] };
+          });
+        });
+        break;
     }
   }, []);
 
   const wsUrl = sessionToken ? getWSUrl(sessionToken) : null;
 
-  const { sendJsonMessage, readyState, lastJsonMessage } = useWebSocket(
+  const { sendJsonMessage, readyState } = useWebSocket(
     wsUrl,
     {
       shouldReconnect: (closeEvent) => {
@@ -220,18 +261,20 @@ export default function App() {
       onOpen: () => console.log('[WS] Connection opened'),
       onClose: (event) => console.log('[WS] Connection closed', { code: event.code, reason: event.reason }),
       onError: (event) => console.error('[WS] Error:', event),
+      // Use onMessage to handle EVERY message (lastJsonMessage can miss rapid messages)
+      onMessage: (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          handleWSMessage(message);
+        } catch (e) {
+          console.error('[WS] Failed to parse message:', e);
+        }
+      },
     },
     !!sessionToken
   );
 
   const isConnected = readyState === ReadyState.OPEN;
-
-  // Handle incoming WebSocket messages
-  useEffect(() => {
-    if (lastJsonMessage) {
-      handleWSMessage(lastJsonMessage);
-    }
-  }, [lastJsonMessage, handleWSMessage]);
 
   // Fetch all sessions (active and archived)
   // showLoading: only show skeleton loader on initial load, not on refreshes

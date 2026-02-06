@@ -456,27 +456,41 @@ class TelegramSubscriptionManager {
     }
 
     const ext = path.extname(filePath).toLowerCase();
+    const maxRetries = 3;
 
-    // Read file as Buffer to work around Bun's file streaming issues with HTTPS uploads
-    const fileBuffer = fs.readFileSync(filePath);
-    const inputFile = new InputFile(fileBuffer, filename);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Read file fresh on each attempt (in case of buffer issues)
+        const fileBuffer = fs.readFileSync(filePath);
+        const inputFile = new InputFile(fileBuffer, filename);
 
-    try {
-      // Determine file type and send appropriately with optional caption
-      if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
-        await this.bot.api.sendPhoto(chatId, inputFile, { caption });
-      } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
-        await this.bot.api.sendVideo(chatId, inputFile, { caption });
-      } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
-        await this.bot.api.sendAudio(chatId, inputFile, { caption, title: filename });
-      } else if ([".ogg", ".oga"].includes(ext)) {
-        await this.bot.api.sendVoice(chatId, inputFile, { caption });
-      } else {
-        await this.bot.api.sendDocument(chatId, inputFile, { caption });
+        // Determine file type and send appropriately with optional caption
+        if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+          await this.bot.api.sendPhoto(chatId, inputFile, { caption });
+        } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
+          await this.bot.api.sendVideo(chatId, inputFile, { caption });
+        } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
+          await this.bot.api.sendAudio(chatId, inputFile, { caption, title: filename });
+        } else if ([".ogg", ".oga"].includes(ext)) {
+          await this.bot.api.sendVoice(chatId, inputFile, { caption });
+        } else {
+          await this.bot.api.sendDocument(chatId, inputFile, { caption });
+        }
+        console.log(`[Telegram] Delivered file: ${filename}${caption ? ` with caption` : ""}`);
+        return; // Success, exit
+      } catch (error: any) {
+        const isRetryable = error?.message?.includes("ECONNRESET") ||
+                           error?.code === "ECONNRESET" ||
+                           error?.message?.includes("socket connection was closed");
+
+        if (isRetryable && attempt < maxRetries) {
+          console.warn(`[Telegram] File upload failed (attempt ${attempt}/${maxRetries}), retrying in ${attempt * 500}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        } else {
+          console.error(`[Telegram] Failed to deliver file after ${attempt} attempts:`, error?.message || error);
+          return;
+        }
       }
-      console.log(`[Telegram] Delivered file: ${filename}${caption ? ` with caption` : ""}`);
-    } catch (error) {
-      console.error(`[Telegram] Failed to deliver file:`, error);
     }
   }
 
