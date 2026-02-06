@@ -123,6 +123,7 @@ export interface WSFileDeliveryMessage {
   filename: string;
   sessionName: string;
   caption?: string;
+  webUrl?: string;
 }
 
 export interface WSContextUpdateMessage {

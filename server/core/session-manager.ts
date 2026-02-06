@@ -314,14 +314,53 @@ class ManagedSession {
       // Check for new files in media directory (outbox model)
       if (message.subtype === "success") {
         const newFiles = this.findNewMediaFiles();
+        const mediaPath = this.getMediaPath();
+        const deliveredFiles: Array<{ type: string; filename: string; webUrl: string }> = [];
+
         for (const filePath of newFiles) {
+          // Compute relative path for web URL
+          const relativePath = filePath.startsWith(mediaPath)
+            ? filePath.slice(mediaPath.length).replace(/^\//, "")
+            : path.basename(filePath);
+          const filename = path.basename(filePath);
+          const webUrl = `/api/media/${relativePath}`;
+
+          // Determine media type from extension
+          const ext = filename.substring(filename.lastIndexOf(".")).toLowerCase();
+          const typeMap: Record<string, string> = {
+            ".mp3": "audio", ".wav": "audio", ".m4a": "audio", ".ogg": "audio",
+            ".mp4": "video", ".mov": "video", ".webm": "video",
+            ".jpg": "image", ".jpeg": "image", ".png": "image", ".gif": "image", ".webp": "image",
+          };
+          const mediaType = typeMap[ext] || "document";
+
+          deliveredFiles.push({ type: mediaType, filename, webUrl });
+
           this.broadcast({
             type: "file_delivery",
             filePath,
-            filename: path.basename(filePath),
+            filename,
             sessionName: this.sessionName,
+            webUrl,
           });
           console.log(`[Session] Delivering file from outbox: ${filePath}`);
+        }
+
+        // Persist delivered files to database for refresh persistence
+        if (deliveredFiles.length > 0) {
+          const lastMessage = messageRepo.getLastAssistantMessage(this.sessionId);
+          if (lastMessage) {
+            const existingMetadata = lastMessage.metadata ? JSON.parse(lastMessage.metadata) : {};
+            const existingMedia = existingMetadata.mediaFiles || [];
+            // Merge and deduplicate by webUrl
+            const allMedia = [...existingMedia];
+            for (const file of deliveredFiles) {
+              if (!allMedia.some((m: any) => m.webUrl === file.webUrl)) {
+                allMedia.push(file);
+              }
+            }
+            messageRepo.updateMetadata(lastMessage.id, { mediaFiles: allMedia });
+          }
         }
       }
 
