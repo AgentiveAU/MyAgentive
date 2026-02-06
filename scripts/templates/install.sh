@@ -58,7 +58,7 @@ cp -rf dist "$INSTALL_DIR/"
 # Copy skills to discoverable location
 mkdir -p "$INSTALL_DIR/skills"
 if [ -d "skills" ]; then
-    cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
+    \cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
 fi
 
 # Create .claude directory and symlink for SDK compatibility

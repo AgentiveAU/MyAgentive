@@ -487,6 +487,43 @@ app.get("/api/files/*", authMiddleware, (req, res) => {
   }
 });
 
+// Send file endpoint (authenticated via API key)
+// Explicitly sends a file to all connected clients (web + Telegram)
+// Used by the send-file CLI tool
+app.post("/api/send-file", (req, res) => {
+  // Authenticate via API key header
+  const apiKey = req.headers["x-api-key"];
+  if (!apiKey || apiKey !== config.apiKey) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+
+  const { filePath, filename, caption } = req.body;
+
+  if (!filePath || !filename) {
+    return res.status(400).json({ error: "filePath and filename are required" });
+  }
+
+  // Verify file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  // Broadcast to all active sessions
+  const broadcastCount = sessionManager.broadcastFileDeliveryToAll(filePath, filename, caption);
+
+  if (broadcastCount === 0) {
+    // No active sessions, but file exists - still success
+    console.log(`[API] send-file: No active sessions to broadcast to`);
+  }
+
+  res.json({
+    success: true,
+    broadcastCount,
+    filePath,
+    filename,
+  });
+});
+
 // File upload endpoint (authenticated)
 // Accepts multipart form data with 'file' field and optional 'sessionName'
 app.post("/api/upload", authMiddleware, async (req, res) => {

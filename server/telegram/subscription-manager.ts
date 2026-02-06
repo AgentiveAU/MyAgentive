@@ -263,8 +263,8 @@ class TelegramSubscriptionManager {
           break;
 
         case "file_delivery":
-          // Handle explicit file delivery from Write tool
-          await this.deliverFileToUser(chatId, message.filePath, message.filename);
+          // Handle explicit file delivery from outbox or send-file API
+          await this.deliverFileToUser(chatId, message.filePath, message.filename, message.caption);
           break;
 
         case "error":
@@ -408,11 +408,14 @@ class TelegramSubscriptionManager {
   }
 
   // Send a media file to the user
+  // Note: Uses Buffer instead of file path to work around Bun's FormData/multipart upload issues
   private async sendMediaFile(chatId: number, media: DetectedMedia): Promise<void> {
     if (!this.bot) return;
 
     try {
-      const inputFile = new InputFile(media.path, media.filename);
+      // Read file as Buffer to work around Bun's file streaming issues with HTTPS uploads
+      const fileBuffer = fs.readFileSync(media.path);
+      const inputFile = new InputFile(fileBuffer, media.filename);
 
       switch (media.type) {
         case "audio":
@@ -442,7 +445,9 @@ class TelegramSubscriptionManager {
   }
 
   // Deliver a file directly to the user (called from file_delivery event)
-  private async deliverFileToUser(chatId: number, filePath: string, filename: string): Promise<void> {
+  // Note: Uses Buffer instead of file path to work around Bun's FormData/multipart upload issues
+  // See: https://github.com/oven-sh/bun/issues/10505, https://github.com/oven-sh/bun/issues/21467
+  private async deliverFileToUser(chatId: number, filePath: string, filename: string, caption?: string): Promise<void> {
     if (!this.bot) return;
 
     if (!fs.existsSync(filePath)) {
@@ -451,22 +456,25 @@ class TelegramSubscriptionManager {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    const inputFile = new InputFile(filePath, filename);
+
+    // Read file as Buffer to work around Bun's file streaming issues with HTTPS uploads
+    const fileBuffer = fs.readFileSync(filePath);
+    const inputFile = new InputFile(fileBuffer, filename);
 
     try {
-      // Determine file type and send appropriately
+      // Determine file type and send appropriately with optional caption
       if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
-        await this.bot.api.sendPhoto(chatId, inputFile);
+        await this.bot.api.sendPhoto(chatId, inputFile, { caption });
       } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
-        await this.bot.api.sendVideo(chatId, inputFile);
+        await this.bot.api.sendVideo(chatId, inputFile, { caption });
       } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
-        await this.bot.api.sendAudio(chatId, inputFile);
+        await this.bot.api.sendAudio(chatId, inputFile, { caption, title: filename });
       } else if ([".ogg", ".oga"].includes(ext)) {
-        await this.bot.api.sendVoice(chatId, inputFile);
+        await this.bot.api.sendVoice(chatId, inputFile, { caption });
       } else {
-        await this.bot.api.sendDocument(chatId, inputFile);
+        await this.bot.api.sendDocument(chatId, inputFile, { caption });
       }
-      console.log(`[Telegram] Delivered file: ${filename}`);
+      console.log(`[Telegram] Delivered file: ${filename}${caption ? ` with caption` : ""}`);
     } catch (error) {
       console.error(`[Telegram] Failed to deliver file:`, error);
     }
