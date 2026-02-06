@@ -29,9 +29,9 @@ export function setCurrentModel(model: "opus" | "sonnet" | "haiku"): void {
   currentModel = model;
 }
 
-// Embedded default system prompt (fallback for compiled binaries)
-const DEFAULT_SYSTEM_PROMPT = `<!-- PROMPT_VERSION: 1 -->
-<!-- Do not remove the version marker above - it enables automatic prompt updates -->
+// Embedded default system prompt (fallback when no file is found)
+const DEFAULT_SYSTEM_PROMPT = `<!-- This file is managed by MyAgentive. It will be overwritten on upgrades. -->
+<!-- To add your own instructions, edit user_prompt.md instead. -->
 
 You are MyAgentive, a super personal AI agent built by Agentive (https://MyAgentive.ai). You are NOT Claude - you are MyAgentive, a distinct product that uses Claude's capabilities as its foundation.
 
@@ -52,36 +52,6 @@ You have full access to the system and can execute commands, read/write files, a
 Always ask permission before actions that could have severe impact (it may break the user system or make high security risk)
 Be concise but thorough in your responses. Use Australian English spelling.
 
-## Saving Files for User Download
-
-When creating files that the user should download (documents, images, audio, video, etc.), you MUST use the \`save-for-download\` command to ensure the file is placed in the correct location.
-
-**How to use:**
-\`\`\`bash
-save-for-download <source-file> [optional-filename]
-\`\`\`
-
-**Examples:**
-\`\`\`bash
-# Save a video (auto-detects type, goes to videos/)
-save-for-download /tmp/my-video.mp4
-
-# Save with custom filename
-save-for-download /tmp/output.mp4 presentation-demo.mp4
-
-# Save a PDF (auto-detects type, goes to documents/)
-save-for-download ./report.pdf quarterly-report-2024.pdf
-\`\`\`
-
-**The command automatically:**
-- Detects file type and places in correct subdirectory (videos/, audio/, photos/, documents/)
-- Moves the file to ~/.myagentive/media/
-- Outputs the correct path for the web UI to detect
-
-**IMPORTANT:** After running save-for-download, include the output path in your response so the user can see the download link in the web UI.
-
-**DO NOT manually save files to media directories.** Always use save-for-download to ensure correct placement.
-
 ## API Keys and Configuration
 
 Your configuration file is located at ~/.myagentive/config. This file contains environment variables including API keys for various services.
@@ -99,7 +69,15 @@ You are responsible for managing API keys on behalf of the user. Always save new
 
 ## MyAgentive Self-Knowledge
 
-When users ask about MyAgentive itself (You) like what it is, how to configure it, troubleshooting, architecture, use "myagentive" skill to answer.`;
+When users ask about MyAgentive itself (You) like what it is, how to configure it, troubleshooting, architecture, use "myagentive" skill to answer.
+
+## Style and Branding
+
+- In all documents and posts, use Australian English spelling
+- NEVER use em dash. Instead use appropriate alternatives: comma, colon, semicolon, or start a new sentence
+- When creating commits, pull requests, GitHub issues, or similar: do not reference Claude Code or Anthropic. Instead use: "By MyAgentive (www.myagentive.ai)"
+
+<!-- End of system prompt. User customisations go in user_prompt.md -->`;
 
 // System prompt file paths
 // NOTE: These are functions to ensure environment variables are read at runtime,
@@ -112,45 +90,30 @@ function getSystemPromptPath(): string {
   return path.join(getMyAgentiveHome(), "system_prompt.md");
 }
 
-function getDefaultPromptPath(): string {
+function getUserPromptPath(): string {
+  return path.join(getMyAgentiveHome(), "user_prompt.md");
+}
+
+function getDefaultPromptPath(filename: string): string {
   const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
   if (isCompiledBinary) {
-    // Binary: default prompt in install directory (not bin/)
-    return path.join(getMyAgentiveHome(), "default-system-prompt.md");
+    // Binary: default prompts in install directory
+    return path.join(getMyAgentiveHome(), filename);
   }
   // Development: in server/ directory
-  return path.resolve(import.meta.dir, "../default-system-prompt.md");
+  return path.resolve(import.meta.dir, "..", filename);
 }
 
 /**
- * Expand ~ and ~/.myagentive to absolute paths in the system prompt.
- * This ensures the agent uses the correct paths regardless of its working directory.
- *
- * Why this is needed:
- * - The agent (Claude Code SDK) may expand ~ differently than expected
- * - Production servers (Issue #97) showed agent saving to wrong directories:
- *   - /home/ubuntu/media/ (wrong)
- *   - /home/ubuntu/.myagentive/bin/media/ (wrong)
- * - By providing absolute paths, we eliminate ambiguity
+ * Expand ~ and ~/.myagentive to absolute paths in prompts.
+ * Ensures the agent uses the correct paths regardless of its working directory.
  */
-/**
- * Extract prompt version from content.
- * Version is stored as: <!-- PROMPT_VERSION: N -->
- * Returns 0 if no version found (legacy prompts).
- */
-function getPromptVersion(content: string): number {
-  const match = content.match(/<!--\s*PROMPT_VERSION:\s*(\d+)\s*-->/);
-  return match ? parseInt(match[1], 10) : 0;
-}
-
 function expandPathsInPrompt(prompt: string): string {
   const home = process.env.HOME || "";
   const myAgentiveHome = getMyAgentiveHome();
 
-  // Replace ~/.myagentive with absolute path (do this first to avoid double-replacement)
+  // Replace ~/.myagentive first to avoid double-replacement
   let expanded = prompt.replace(/~\/\.myagentive/g, myAgentiveHome);
-
-  // Replace remaining ~ with home directory
   expanded = expanded.replace(/~\//g, home + "/");
 
   return expanded;
@@ -158,69 +121,62 @@ function expandPathsInPrompt(prompt: string): string {
 
 function loadSystemPrompt(): string {
   const systemPromptPath = getSystemPromptPath();
-  const myAgentiveHome = getMyAgentiveHome();
 
-  // Load default prompt first (we need it for version comparison)
-  const defaultPath = getDefaultPromptPath();
-  let defaultPrompt: string;
-
-  if (fs.existsSync(defaultPath)) {
-    defaultPrompt = fs.readFileSync(defaultPath, "utf-8");
-  } else {
-    // Fallback to embedded default (for compiled binary)
-    defaultPrompt = DEFAULT_SYSTEM_PROMPT;
-  }
-
-  const defaultVersion = getPromptVersion(defaultPrompt);
-
-  // Check if user has a custom prompt
+  // Try the installed system_prompt.md first (written by installer)
   if (fs.existsSync(systemPromptPath)) {
     try {
-      const userPrompt = fs.readFileSync(systemPromptPath, "utf-8");
-      const userVersion = getPromptVersion(userPrompt);
-
-      // If default is newer, upgrade the user's prompt
-      if (defaultVersion > userVersion) {
-        console.log(`System prompt upgrade available: v${userVersion} -> v${defaultVersion}`);
-
-        // Backup old prompt
-        const backupPath = `${systemPromptPath}.v${userVersion}.backup`;
-        try {
-          fs.writeFileSync(backupPath, userPrompt, "utf-8");
-          console.log(`Backed up old prompt to: ${backupPath}`);
-        } catch (e) {
-          console.warn("Could not backup old prompt");
-        }
-
-        // Write new prompt
-        fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
-        console.log(`Upgraded system prompt to v${defaultVersion}`);
-        return expandPathsInPrompt(defaultPrompt);
-      }
-
-      // User prompt is current, use it
-      console.log(`Loaded system prompt v${userVersion} from: ${systemPromptPath}`);
-      return expandPathsInPrompt(userPrompt);
+      const prompt = fs.readFileSync(systemPromptPath, "utf-8");
+      console.log(`Loaded system prompt from: ${systemPromptPath}`);
+      return expandPathsInPrompt(prompt);
     } catch (error) {
-      console.warn("Failed to read custom system prompt, using default");
+      console.warn("Failed to read system prompt, trying default file");
     }
   }
 
-  // No user prompt exists, create one from default
-  try {
-    if (fs.existsSync(myAgentiveHome)) {
-      fs.writeFileSync(systemPromptPath, defaultPrompt, "utf-8");
-      console.log(`Created system prompt v${defaultVersion} at: ${systemPromptPath}`);
-    }
-  } catch (error) {
-    console.warn("Could not create user system prompt file");
+  // Try the default-system-prompt.md file
+  const defaultPath = getDefaultPromptPath("default-system-prompt.md");
+  if (fs.existsSync(defaultPath)) {
+    const prompt = fs.readFileSync(defaultPath, "utf-8");
+    console.log(`Loaded system prompt from default: ${defaultPath}`);
+    return expandPathsInPrompt(prompt);
   }
 
-  return expandPathsInPrompt(defaultPrompt);
+  // Fallback to embedded default
+  console.log("Using embedded default system prompt");
+  return expandPathsInPrompt(DEFAULT_SYSTEM_PROMPT);
 }
 
-// Load system prompt once at startup
-const SYSTEM_PROMPT = loadSystemPrompt();
+function loadUserPrompt(): string {
+  const userPromptPath = getUserPromptPath();
+
+  if (fs.existsSync(userPromptPath)) {
+    try {
+      const prompt = fs.readFileSync(userPromptPath, "utf-8");
+      // Only log if user has actual content (not just the template comments)
+      const hasContent = prompt.split("\n").some(
+        (line) => line.trim() && !line.trim().startsWith("<!--") && !line.trim().startsWith("##")
+      );
+      if (hasContent) {
+        console.log(`Loaded user prompt from: ${userPromptPath}`);
+      }
+      return expandPathsInPrompt(prompt);
+    } catch (error) {
+      console.warn("Failed to read user prompt");
+    }
+  }
+
+  return "";
+}
+
+// Load and compose prompts once at startup
+const SYSTEM_PROMPT = (() => {
+  const systemPrompt = loadSystemPrompt();
+  const userPrompt = loadUserPrompt();
+  if (userPrompt) {
+    return systemPrompt + "\n\n" + userPrompt;
+  }
+  return systemPrompt;
+})();
 
 type UserMessage = {
   type: "user";

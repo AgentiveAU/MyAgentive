@@ -63,6 +63,7 @@ mkdir -p "$RELEASE_DIR/MyAgentive/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 echo "Copying skills..."
@@ -91,6 +92,7 @@ mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 rm -rf "$RELEASE_DIR/MyAgentive-linux/skills"
@@ -116,6 +118,7 @@ mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux-arm64/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux-arm64/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/skills"
