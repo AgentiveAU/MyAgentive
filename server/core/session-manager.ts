@@ -93,6 +93,7 @@ class ManagedSession {
   }
 
   // Get the media directory path
+  // Uses centralized config.mediaPath
   private getMediaPath(): string {
     return config.mediaPath;
   }
@@ -391,6 +392,18 @@ class ManagedSession {
     return this.subscribers.size > 0;
   }
 
+  // Public method to broadcast file delivery (used by send-file API)
+  broadcastFileDelivery(filePath: string, filename: string, caption?: string): void {
+    this.broadcast({
+      type: "file_delivery",
+      filePath,
+      filename,
+      sessionName: this.sessionName,
+      caption,
+    } as any); // caption is optional extension
+    console.log(`[Session] Broadcasting file delivery: ${filename}`);
+  }
+
   private broadcast(message: OutgoingWSMessage) {
     for (const subscription of this.subscribers.values()) {
       try {
@@ -590,6 +603,20 @@ class SessionManager extends EventEmitter {
         this.sessions.delete(name);
       }
     }
+  }
+
+  // Broadcast file delivery to all active sessions with subscribers
+  // Used by the send-file API endpoint
+  broadcastFileDeliveryToAll(filePath: string, filename: string, caption?: string): number {
+    let broadcastCount = 0;
+    for (const [name, session] of this.sessions) {
+      if (session.hasSubscribers()) {
+        session.broadcastFileDelivery(filePath, filename, caption);
+        broadcastCount++;
+      }
+    }
+    console.log(`[SessionManager] Broadcast file delivery to ${broadcastCount} active sessions`);
+    return broadcastCount;
   }
 }
 

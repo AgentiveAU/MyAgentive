@@ -48,9 +48,16 @@ export const config = {
   webPassword: required("WEB_PASSWORD"),
   apiKey: required("API_KEY"),
 
-  // Telegram
-  telegramBotToken: required("TELEGRAM_BOT_TOKEN"),
-  telegramUserId: parseInt(required("TELEGRAM_USER_ID")),
+  // Telegram (optional - web-only mode if not configured)
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
+  telegramUserId: process.env.TELEGRAM_USER_ID
+    ? parseInt(process.env.TELEGRAM_USER_ID)
+    : 0,
+
+  // Helper to check if Telegram is properly configured
+  get telegramEnabled(): boolean {
+    return !!this.telegramBotToken && this.telegramUserId > 0;
+  },
   telegramMonitoringGroupId: process.env.TELEGRAM_MONITORING_GROUP_ID
     ? parseInt(process.env.TELEGRAM_MONITORING_GROUP_ID)
     : null,

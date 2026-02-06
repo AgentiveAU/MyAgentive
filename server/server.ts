@@ -111,14 +111,19 @@ app.get("/health", async (req, res) => {
   }
 
   // Check Telegram bot (only if configured)
-  if (config.telegramBotToken) {
+  if (config.telegramEnabled) {
     try {
-      const { bot } = await import("./telegram/bot.js");
-      const me = await bot.api.getMe();
-      health.components.telegram = {
-        status: "ok",
-        botUsername: me.username
-      };
+      const { getBotInstance } = await import("./telegram/bot.js");
+      const bot = getBotInstance();
+      if (bot) {
+        const me = await bot.api.getMe();
+        health.components.telegram = {
+          status: "ok",
+          botUsername: me.username
+        };
+      } else {
+        health.components.telegram = { status: "not_started" };
+      }
     } catch (error) {
       health.status = "degraded";
       health.components.telegram = {
@@ -480,6 +485,43 @@ app.get("/api/files/*", authMiddleware, (req, res) => {
     });
     stream.pipe(res);
   }
+});
+
+// Send file endpoint (authenticated via API key)
+// Explicitly sends a file to all connected clients (web + Telegram)
+// Used by the send-file CLI tool
+app.post("/api/send-file", (req, res) => {
+  // Authenticate via API key header
+  const apiKey = req.headers["x-api-key"];
+  if (!apiKey || apiKey !== config.apiKey) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+
+  const { filePath, filename, caption } = req.body;
+
+  if (!filePath || !filename) {
+    return res.status(400).json({ error: "filePath and filename are required" });
+  }
+
+  // Verify file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: "File not found" });
+  }
+
+  // Broadcast to all active sessions
+  const broadcastCount = sessionManager.broadcastFileDeliveryToAll(filePath, filename, caption);
+
+  if (broadcastCount === 0) {
+    // No active sessions, but file exists - still success
+    console.log(`[API] send-file: No active sessions to broadcast to`);
+  }
+
+  res.json({
+    success: true,
+    broadcastCount,
+    filePath,
+    filename,
+  });
 });
 
 // File upload endpoint (authenticated)

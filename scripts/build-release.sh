@@ -37,9 +37,10 @@ mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64"
 echo "Building frontend..."
 bunx vite build
 
-# Build macOS binary
+# Build macOS binary (Apple Silicon M1/M2/M3/M4/M5)
+# Uses --target for cross-compilation so builds work from any platform
 echo "Building macOS binary..."
-bun build --compile server/index.ts --outfile dist/myagentive
+bun build --compile --target=bun-darwin-arm64 server/index.ts --outfile dist/myagentive
 
 # Build Linux binary
 echo "Building Linux x64 binary..."
@@ -52,14 +53,17 @@ bun build --compile --target=bun-linux-arm64 server/index.ts --outfile "$RELEASE
 # Prepare macOS package
 echo "Preparing macOS package..."
 cp dist/myagentive "$RELEASE_DIR/MyAgentive/"
-# Copy and configure install script and control script from templates
+# Copy and configure install script, control script, and file tools from templates
 cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive/install.sh"
 cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive/myagentivectl"
+cp scripts/templates/save-for-download "$RELEASE_DIR/MyAgentive/save-for-download"
+cp scripts/templates/send-file "$RELEASE_DIR/MyAgentive/send-file"
 sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive/install.sh" && rm -f "$RELEASE_DIR/MyAgentive/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 echo "Copying skills..."
@@ -74,18 +78,21 @@ find "$RELEASE_DIR/MyAgentive/skills" -name '__pycache__' -type d -exec rm -rf {
 find "$RELEASE_DIR/MyAgentive/skills" -name '*.pyc' -delete
 find "$RELEASE_DIR/MyAgentive/skills" -name '.env' -delete
 
-chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentivectl" "$RELEASE_DIR/MyAgentive/myagentive"
+chmod +x "$RELEASE_DIR/MyAgentive/install.sh" "$RELEASE_DIR/MyAgentive/myagentivectl" "$RELEASE_DIR/MyAgentive/myagentive" "$RELEASE_DIR/MyAgentive/save-for-download" "$RELEASE_DIR/MyAgentive/send-file"
 
 # Prepare Linux package
 echo "Preparing Linux package..."
-# Copy and configure install script and control script from templates
+# Copy and configure install script, control script, and file tools from templates
 cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive-linux/install.sh"
 cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
+cp scripts/templates/save-for-download "$RELEASE_DIR/MyAgentive-linux/save-for-download"
+cp scripts/templates/send-file "$RELEASE_DIR/MyAgentive-linux/send-file"
 sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux/install.sh" && rm -f "$RELEASE_DIR/MyAgentive-linux/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive-linux/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 rm -rf "$RELEASE_DIR/MyAgentive-linux/skills"
@@ -98,17 +105,20 @@ find "$RELEASE_DIR/MyAgentive-linux/skills" -name '__pycache__' -type d -exec rm
 find "$RELEASE_DIR/MyAgentive-linux/skills" -name '*.pyc' -delete
 find "$RELEASE_DIR/MyAgentive-linux/skills" -name '.env' -delete
 
-chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl"
+chmod +x "$RELEASE_DIR/MyAgentive-linux/myagentive" "$RELEASE_DIR/MyAgentive-linux/install.sh" "$RELEASE_DIR/MyAgentive-linux/myagentivectl" "$RELEASE_DIR/MyAgentive-linux/save-for-download" "$RELEASE_DIR/MyAgentive-linux/send-file"
 
 # Prepare Linux ARM64 package
 echo "Preparing Linux ARM64 package..."
 cp scripts/templates/install.sh "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh"
 cp scripts/templates/myagentivectl "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl"
+cp scripts/templates/save-for-download "$RELEASE_DIR/MyAgentive-linux-arm64/save-for-download"
+cp scripts/templates/send-file "$RELEASE_DIR/MyAgentive-linux-arm64/send-file"
 sed -i.bak "s/__VERSION__/$VERSION/g" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" && rm -f "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh.bak"
 mkdir -p "$RELEASE_DIR/MyAgentive-linux-arm64/dist"
 cp -r dist/assets dist/index.html dist/manifest.webmanifest dist/registerSW.js dist/sw.js dist/workbox-*.js "$RELEASE_DIR/MyAgentive-linux-arm64/dist/"
 cp LICENSE "$RELEASE_DIR/MyAgentive-linux-arm64/"
 cp server/default-system-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
+cp server/default-user-prompt.md "$RELEASE_DIR/MyAgentive-linux-arm64/"
 
 # Copy skills to discoverable location (install script creates symlink for SDK compatibility)
 rm -rf "$RELEASE_DIR/MyAgentive-linux-arm64/skills"
@@ -121,7 +131,7 @@ find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '__pycache__' -type d -e
 find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '*.pyc' -delete
 find "$RELEASE_DIR/MyAgentive-linux-arm64/skills" -name '.env' -delete
 
-chmod +x "$RELEASE_DIR/MyAgentive-linux-arm64/myagentive" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl"
+chmod +x "$RELEASE_DIR/MyAgentive-linux-arm64/myagentive" "$RELEASE_DIR/MyAgentive-linux-arm64/install.sh" "$RELEASE_DIR/MyAgentive-linux-arm64/myagentivectl" "$RELEASE_DIR/MyAgentive-linux-arm64/save-for-download" "$RELEASE_DIR/MyAgentive-linux-arm64/send-file"
 
 # Create archives with version
 echo "Creating archives..."

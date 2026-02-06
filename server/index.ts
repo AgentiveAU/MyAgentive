@@ -61,10 +61,10 @@ async function bootstrap(): Promise<void> {
   // Start Express server
   await startServer();
 
-  // Start Telegram bot
+  // Start Telegram bot (only if configured)
   await startTelegramBot();
 
-  // Send startup notification
+  // Send startup notification (only if Telegram monitoring is configured)
   await sendStartupMessage();
 
   // Run token cleanup on startup and every hour

@@ -122,6 +122,7 @@ export interface WSFileDeliveryMessage {
   filePath: string;
   filename: string;
   sessionName: string;
+  caption?: string;
 }
 
 export interface WSContextUpdateMessage {
