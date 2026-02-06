@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 
 // Base directory for MyAgentive installation
@@ -8,6 +9,32 @@ import path from "path";
 function getMyAgentiveHome(): string {
   return process.env.MYAGENTIVE_HOME || path.join(process.env.HOME || "", ".myagentive");
 }
+
+/**
+ * Load configuration from the correct location.
+ * Priority order:
+ * 1. ~/.myagentive/config (production config file)
+ * 2. .env in current working directory (development fallback)
+ *
+ * This fixes Issue #108: Previously, `import "dotenv/config"` loaded .env
+ * from cwd before we could direct it to the right location.
+ */
+function loadConfig(): void {
+  const myAgentiveHome = getMyAgentiveHome();
+  const configPath = path.join(myAgentiveHome, "config");
+
+  if (fs.existsSync(configPath)) {
+    // Production: load from ~/.myagentive/config
+    dotenv.config({ path: configPath });
+    console.log(`Loaded config from: ${configPath}`);
+  } else {
+    // Development fallback: load from .env in cwd
+    dotenv.config();
+  }
+}
+
+// Load config immediately on module import
+loadConfig();
 
 function required(name: string): string {
   const value = process.env[name];
@@ -48,9 +75,16 @@ export const config = {
   webPassword: required("WEB_PASSWORD"),
   apiKey: required("API_KEY"),
 
-  // Telegram
-  telegramBotToken: required("TELEGRAM_BOT_TOKEN"),
-  telegramUserId: parseInt(required("TELEGRAM_USER_ID")),
+  // Telegram (optional - web-only mode if not configured)
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
+  telegramUserId: process.env.TELEGRAM_USER_ID
+    ? parseInt(process.env.TELEGRAM_USER_ID)
+    : 0,
+
+  // Helper to check if Telegram is properly configured
+  get telegramEnabled(): boolean {
+    return !!this.telegramBotToken && this.telegramUserId > 0;
+  },
   telegramMonitoringGroupId: process.env.TELEGRAM_MONITORING_GROUP_ID
     ? parseInt(process.env.TELEGRAM_MONITORING_GROUP_ID)
     : null,

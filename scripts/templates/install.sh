@@ -35,14 +35,30 @@ if [ -f "$INSTALL_DIR/myagentive" ] && [ ! -L "$INSTALL_DIR/myagentive" ]; then
     rm -f "$INSTALL_DIR/myagentivectl"
 fi
 
-# Copy files with force overwrite
+# Copy binaries and tools
 cp -rf myagentive myagentivectl "$BIN_DIR/"
-cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
+
+# Always overwrite system_prompt.md (product-managed, safe to replace)
+rm -f "$INSTALL_DIR/system_prompt.md"
+\cp -f default-system-prompt.md "$INSTALL_DIR/system_prompt.md"
+
+# Copy default prompt files for reference
+\cp -f default-system-prompt.md "$INSTALL_DIR/"
+\cp -f default-user-prompt.md "$INSTALL_DIR/"
+
+# Create user prompt only if it doesn't exist (user-managed, never overwrite)
+if [ ! -f "$INSTALL_DIR/user_prompt.md" ]; then
+    \cp -f default-user-prompt.md "$INSTALL_DIR/user_prompt.md"
+fi
+
+# Copy other files
+cp -rf LICENSE install.sh "$INSTALL_DIR/"
 cp -rf dist "$INSTALL_DIR/"
+
 # Copy skills to discoverable location
 mkdir -p "$INSTALL_DIR/skills"
 if [ -d "skills" ]; then
-    cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
+    \cp -rf skills/* "$INSTALL_DIR/skills/" 2>/dev/null || true
 fi
 
 # Create .claude directory and symlink for SDK compatibility
@@ -50,7 +66,7 @@ mkdir -p "$INSTALL_DIR/.claude"
 rm -rf "$INSTALL_DIR/.claude/skills"
 ln -sf "../skills" "$INSTALL_DIR/.claude/skills"
 
-# Create symlink for CLI
+# Create symlinks for CLI
 mkdir -p "${HOME}/.local/bin"
 ln -sf "$BIN_DIR/myagentive" "${HOME}/.local/bin/myagentive"
 ln -sf "$BIN_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"

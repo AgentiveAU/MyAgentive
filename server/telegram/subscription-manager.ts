@@ -263,8 +263,8 @@ class TelegramSubscriptionManager {
           break;
 
         case "file_delivery":
-          // Handle explicit file delivery from Write tool
-          await this.deliverFileToUser(chatId, message.filePath, message.filename);
+          // Handle explicit file delivery from outbox or send-file API
+          await this.deliverFileToUser(chatId, message.filePath, message.filename, message.caption);
           break;
 
         case "error":
@@ -408,11 +408,14 @@ class TelegramSubscriptionManager {
   }
 
   // Send a media file to the user
+  // Note: Uses Buffer instead of file path to work around Bun's FormData/multipart upload issues
   private async sendMediaFile(chatId: number, media: DetectedMedia): Promise<void> {
     if (!this.bot) return;
 
     try {
-      const inputFile = new InputFile(media.path, media.filename);
+      // Read file as Buffer to work around Bun's file streaming issues with HTTPS uploads
+      const fileBuffer = fs.readFileSync(media.path);
+      const inputFile = new InputFile(fileBuffer, media.filename);
 
       switch (media.type) {
         case "audio":
@@ -442,7 +445,9 @@ class TelegramSubscriptionManager {
   }
 
   // Deliver a file directly to the user (called from file_delivery event)
-  private async deliverFileToUser(chatId: number, filePath: string, filename: string): Promise<void> {
+  // Note: Uses Buffer instead of file path to work around Bun's FormData/multipart upload issues
+  // See: https://github.com/oven-sh/bun/issues/10505, https://github.com/oven-sh/bun/issues/21467
+  private async deliverFileToUser(chatId: number, filePath: string, filename: string, caption?: string): Promise<void> {
     if (!this.bot) return;
 
     if (!fs.existsSync(filePath)) {
@@ -451,24 +456,41 @@ class TelegramSubscriptionManager {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    const inputFile = new InputFile(filePath, filename);
+    const maxRetries = 3;
 
-    try {
-      // Determine file type and send appropriately
-      if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
-        await this.bot.api.sendPhoto(chatId, inputFile);
-      } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
-        await this.bot.api.sendVideo(chatId, inputFile);
-      } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
-        await this.bot.api.sendAudio(chatId, inputFile);
-      } else if ([".ogg", ".oga"].includes(ext)) {
-        await this.bot.api.sendVoice(chatId, inputFile);
-      } else {
-        await this.bot.api.sendDocument(chatId, inputFile);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Read file fresh on each attempt (in case of buffer issues)
+        const fileBuffer = fs.readFileSync(filePath);
+        const inputFile = new InputFile(fileBuffer, filename);
+
+        // Determine file type and send appropriately with optional caption
+        if ([".jpg", ".jpeg", ".png", ".gif", ".webp"].includes(ext)) {
+          await this.bot.api.sendPhoto(chatId, inputFile, { caption });
+        } else if ([".mp4", ".mov", ".webm", ".avi"].includes(ext)) {
+          await this.bot.api.sendVideo(chatId, inputFile, { caption });
+        } else if ([".mp3", ".wav", ".m4a", ".aac", ".flac"].includes(ext)) {
+          await this.bot.api.sendAudio(chatId, inputFile, { caption, title: filename });
+        } else if ([".ogg", ".oga"].includes(ext)) {
+          await this.bot.api.sendVoice(chatId, inputFile, { caption });
+        } else {
+          await this.bot.api.sendDocument(chatId, inputFile, { caption });
+        }
+        console.log(`[Telegram] Delivered file: ${filename}${caption ? ` with caption` : ""}`);
+        return; // Success, exit
+      } catch (error: any) {
+        const isRetryable = error?.message?.includes("ECONNRESET") ||
+                           error?.code === "ECONNRESET" ||
+                           error?.message?.includes("socket connection was closed");
+
+        if (isRetryable && attempt < maxRetries) {
+          console.warn(`[Telegram] File upload failed (attempt ${attempt}/${maxRetries}), retrying in ${attempt * 500}ms...`);
+          await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        } else {
+          console.error(`[Telegram] Failed to deliver file after ${attempt} attempts:`, error?.message || error);
+          return;
+        }
       }
-      console.log(`[Telegram] Delivered file: ${filename}`);
-    } catch (error) {
-      console.error(`[Telegram] Failed to deliver file:`, error);
     }
   }
 
