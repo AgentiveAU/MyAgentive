@@ -37,7 +37,27 @@ fi
 
 # Copy files with force overwrite
 cp -rf myagentive myagentivectl "$BIN_DIR/"
-cp -rf default-system-prompt.md LICENSE install.sh "$INSTALL_DIR/"
+if [ -f "save-for-download" ]; then
+    cp -rf save-for-download "$BIN_DIR/"
+fi
+if [ -f "send-file" ]; then
+    cp -rf send-file "$BIN_DIR/"
+fi
+
+# Always overwrite system prompt (product-managed, safe to replace)
+rm -f "$INSTALL_DIR/system_prompt.md"
+\cp -f default-system-prompt.md "$INSTALL_DIR/system_prompt.md"
+
+# Copy default prompt files for reference
+\cp -f default-system-prompt.md "$INSTALL_DIR/"
+\cp -f default-user-prompt.md "$INSTALL_DIR/"
+
+# Create user prompt only if it doesn't exist (user-managed, never overwrite)
+if [ ! -f "$INSTALL_DIR/user_prompt.md" ]; then
+    \cp -f default-user-prompt.md "$INSTALL_DIR/user_prompt.md"
+fi
+
+cp -rf LICENSE install.sh "$INSTALL_DIR/"
 cp -rf dist "$INSTALL_DIR/"
 # Copy skills to discoverable location
 mkdir -p "$INSTALL_DIR/skills"
@@ -50,10 +70,16 @@ mkdir -p "$INSTALL_DIR/.claude"
 rm -rf "$INSTALL_DIR/.claude/skills"
 ln -sf "../skills" "$INSTALL_DIR/.claude/skills"
 
-# Create symlink for CLI
+# Create symlinks for CLI and tools
 mkdir -p "${HOME}/.local/bin"
 ln -sf "$BIN_DIR/myagentive" "${HOME}/.local/bin/myagentive"
 ln -sf "$BIN_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"
+if [ -f "$BIN_DIR/save-for-download" ]; then
+    ln -sf "$BIN_DIR/save-for-download" "${HOME}/.local/bin/save-for-download"
+fi
+if [ -f "$BIN_DIR/send-file" ]; then
+    ln -sf "$BIN_DIR/send-file" "${HOME}/.local/bin/send-file"
+fi
 
 echo ""
 echo "MyAgentive v${VERSION} installed successfully!"
