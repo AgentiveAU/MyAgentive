@@ -11,9 +11,9 @@ let currentModel: "opus" | "sonnet" | "haiku" = "opus";
 function getProjectRoot(): string {
   const isCompiledBinary = import.meta.dir.startsWith("/$bunfs");
   if (isCompiledBinary) {
-    // Compiled binary: use the directory containing the executable
-    // Installation structure: ~/.myagentive/myagentive with .claude/skills/ alongside
-    return path.dirname(process.execPath);
+    // Binary at ~/.myagentive/bin/myagentive
+    // Project root is ~/.myagentive/ (parent of bin/)
+    return path.resolve(path.dirname(process.execPath), "..");
   }
   // Development: go up from server/core/ to repo root
   return path.resolve(import.meta.dir, "../..");
