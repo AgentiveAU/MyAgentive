@@ -79,7 +79,8 @@ fi
 mkdir -p "$INSTALL_DIR/skills"
 if [ -d "$INSTALL_DIR/skills" ] && [ "$(ls -A "$INSTALL_DIR/skills" 2>/dev/null)" ]; then
     if command -v zip &> /dev/null; then
-        backup_name="skills-backup-$(date +%Y%m%d-%H%M%S).zip"
+        mkdir -p "$INSTALL_DIR/backups"
+        backup_name="backups/skills-backup-$(date +%Y%m%d-%H%M%S).zip"
         (cd "$INSTALL_DIR" && zip -qr "$backup_name" skills/)
         echo "Backed up skills to $backup_name"
     fi
