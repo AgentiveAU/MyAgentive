@@ -35,6 +35,7 @@ interface ChatWindowProps {
   isLoading: boolean;
   processingStartTime?: number | null;
   onSendMessage: (content: string) => void;
+  onStop?: () => void;
   onLogout: () => void;
   contextInfo?: ContextInfo | null;
 }
@@ -49,6 +50,7 @@ export function ChatWindow({
   isLoading,
   processingStartTime,
   onSendMessage,
+  onStop,
   onLogout,
   contextInfo,
 }: ChatWindowProps) {
@@ -267,6 +269,7 @@ export function ChatWindow({
       {/* Input */}
       <ChatInput
         onSend={onSendMessage}
+        onStop={onStop}
         disabled={!isConnected}
         isLoading={isLoading}
         placeholder={isConnected ? "Type a message..." : "Connecting..."}

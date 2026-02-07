@@ -1,4 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type Query } from "@anthropic-ai/claude-agent-sdk";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -256,6 +256,7 @@ export interface AgentSessionOptions {
 
 export class AgentSession {
   private queue = new MessageQueue();
+  private queryInstance: Query | null = null;
   private outputIterator: AsyncIterator<any> | null = null;
   private closed = false;
 
@@ -287,7 +288,7 @@ export class AgentSession {
       console.log(`[AgentSession] Resuming SDK session: ${options.resumeSessionId}`);
     }
 
-    this.outputIterator = query({
+    const q = query({
       prompt: this.queue as any,
       options: {
         maxTurns: 100,
@@ -309,7 +310,9 @@ export class AgentSession {
         ...(claudePath && { pathToClaudeCodeExecutable: claudePath }),
         ...(options.resumeSessionId && { resume: options.resumeSessionId }),
       },
-    })[Symbol.asyncIterator]();
+    });
+    this.queryInstance = q;
+    this.outputIterator = q[Symbol.asyncIterator]();
   }
 
   // Send a message to the agent
@@ -328,6 +331,13 @@ export class AgentSession {
       const { value, done } = await this.outputIterator.next();
       if (done) break;
       yield value;
+    }
+  }
+
+  // Interrupt the current query execution
+  async interrupt(): Promise<void> {
+    if (this.queryInstance && !this.closed) {
+      await this.queryInstance.interrupt();
     }
   }
 
