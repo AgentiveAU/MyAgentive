@@ -759,9 +759,14 @@ export async function startServer(): Promise<void> {
       ws.on("message", (data) => {
         try {
           const message: IncomingWSMessage = JSON.parse(data.toString());
-          handleWSMessage(ws, message);
+          handleWSMessage(ws, message).catch((error) => {
+            console.error("Error handling WebSocket message:", error);
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: "error", error: "Internal server error" }));
+            }
+          });
         } catch (error) {
-          console.error("Error handling WebSocket message:", error);
+          console.error("Error parsing WebSocket message:", error);
           ws.send(JSON.stringify({ type: "error", error: "Invalid message format" }));
         }
       });

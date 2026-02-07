@@ -54,6 +54,12 @@ function toSessionInfo(dbSession: any): SessionInfo {
 
 // Convert database message to ChatMessage
 function toChatMessage(dbMessage: any): ChatMessage {
+  let metadata: Record<string, any> | undefined;
+  try {
+    metadata = dbMessage.metadata ? JSON.parse(dbMessage.metadata) : undefined;
+  } catch {
+    // Corrupted metadata, skip
+  }
   return {
     id: dbMessage.id,
     sessionId: dbMessage.session_id,
@@ -61,7 +67,7 @@ function toChatMessage(dbMessage: any): ChatMessage {
     content: dbMessage.content,
     timestamp: dbMessage.timestamp,
     source: dbMessage.source,
-    metadata: dbMessage.metadata ? JSON.parse(dbMessage.metadata) : undefined,
+    metadata,
   };
 }
 
@@ -363,7 +369,12 @@ class ManagedSession {
         if (deliveredFiles.length > 0) {
           const lastMessage = messageRepo.getLastAssistantMessage(this.sessionId);
           if (lastMessage) {
-            const existingMetadata = lastMessage.metadata ? JSON.parse(lastMessage.metadata) : {};
+            let existingMetadata: Record<string, any> = {};
+            try {
+              existingMetadata = lastMessage.metadata ? JSON.parse(lastMessage.metadata) : {};
+            } catch {
+              // Corrupted metadata, start fresh
+            }
             const existingMedia = existingMetadata.mediaFiles || [];
             // Merge and deduplicate by webUrl
             const allMedia = [...existingMedia];
