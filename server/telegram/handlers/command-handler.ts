@@ -44,8 +44,22 @@ export async function handleCommand(ctx: MyContext): Promise<void> {
     case "compact":
       await handleCompactCommand(ctx, args);
       break;
+    case "stop":
+      await handleStopCommand(ctx);
+      break;
     default:
       await ctx.reply(`Unknown command: ${command}`);
+  }
+}
+
+async function handleStopCommand(ctx: MyContext): Promise<void> {
+  const sessionName = ctx.session.currentSessionName;
+  const stopped = await sessionManager.stopGeneration(sessionName);
+
+  if (stopped) {
+    await ctx.reply("Generation stopped.");
+  } else {
+    await ctx.reply("No active generation to stop.");
   }
 }
 

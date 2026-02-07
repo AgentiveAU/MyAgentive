@@ -526,6 +526,17 @@ export default function App() {
     }
   };
 
+  // Stop generation
+  const handleStop = () => {
+    if (!currentSessionName || !isConnected) return;
+    sendJsonMessage({
+      type: "stop",
+      sessionName: currentSessionName,
+    });
+    setIsLoading(false);
+    setProcessingStartTime(null);
+  };
+
   // Send a message
   const handleSendMessage = (content: string) => {
     if (!currentSessionName || !isConnected) return;
@@ -655,6 +666,7 @@ export default function App() {
           isLoading={isLoading}
           processingStartTime={processingStartTime}
           onSendMessage={handleSendMessage}
+          onStop={handleStop}
           onLogout={handleLogout}
           contextInfo={contextInfo}
         />

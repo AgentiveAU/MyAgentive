@@ -6,6 +6,7 @@ import { saveDraft, loadDraft, deleteDraft } from "../../lib/draft-storage";
 
 interface ChatInputProps {
   onSend: (content: string) => void;
+  onStop?: () => void;
   disabled?: boolean;
   isLoading?: boolean;
   placeholder?: string;
@@ -25,6 +26,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export function ChatInput({
   onSend,
+  onStop,
   disabled = false,
   isLoading = false,
   placeholder = "Type a message...",
@@ -659,18 +661,30 @@ export function ChatInput({
           className="min-h-[44px] max-h-[200px] resize-none"
           rows={1}
         />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={(!input.trim() && !selectedFile) || disabled || isProcessing}
-        >
-          {isProcessing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-          <span className="sr-only">Send message</span>
-        </Button>
+        {isProcessing && onStop ? (
+          <Button
+            type="button"
+            size="icon"
+            variant="destructive"
+            onClick={onStop}
+            title="Stop generation"
+          >
+            <Square className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="icon"
+            disabled={(!input.trim() && !selectedFile) || disabled || isProcessing}
+          >
+            {isProcessing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span className="sr-only">Send message</span>
+          </Button>
+        )}
       </form>
       <p className="text-xs text-muted-foreground mt-2">
         Press Enter to send, {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter for new line

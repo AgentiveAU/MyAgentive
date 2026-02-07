@@ -52,7 +52,12 @@ export interface WSPingMessage {
   type: "ping";
 }
 
-export type IncomingWSMessage = WSChatMessage | WSSubscribeMessage | WSSwitchSessionMessage | WSPingMessage;
+export interface WSStopMessage {
+  type: "stop";
+  sessionName: string;
+}
+
+export type IncomingWSMessage = WSChatMessage | WSSubscribeMessage | WSSwitchSessionMessage | WSPingMessage | WSStopMessage;
 
 // Outgoing WebSocket messages
 export interface WSConnectedMessage {

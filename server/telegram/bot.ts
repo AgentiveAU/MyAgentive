@@ -130,6 +130,7 @@ Send voice, files, videos, photos, stickers, locations - they're saved and acces
   botInstance.command("replymode", handleCommand);
   botInstance.command("linkpreview", handleCommand);
   botInstance.command("compact", handleCommand);
+  botInstance.command("stop", handleCommand);
 
   // Menu command - shows inline button menu
   botInstance.command("menu", async (ctx) => {
@@ -282,6 +283,7 @@ async function registerBotCommands(botInstance: Bot<MyContext>): Promise<void> {
     { command: "menu", description: "Interactive command menu" },
     { command: "model", description: "Show or change AI model" },
     { command: "usage", description: "Show API usage" },
+    { command: "stop", description: "Stop current generation" },
     { command: "compact", description: "Compact context to free space" },
     { command: "replymode", description: "Set reply threading mode" },
     { command: "linkpreview", description: "Toggle link previews" },

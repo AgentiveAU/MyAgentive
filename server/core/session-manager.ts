@@ -484,6 +484,25 @@ class ManagedSession {
     } as ActivityEvent);
   }
 
+  async stopGeneration(): Promise<boolean> {
+    if (!this.isProcessing) {
+      return false;
+    }
+
+    console.log(`[Session ${this.sessionName}] Stopping generation`);
+
+    try {
+      await this.agentSession.interrupt();
+    } catch (error) {
+      console.error(`[Session ${this.sessionName}] Error during interrupt:`, error);
+      // Force cleanup if interrupt fails
+      this.markProcessingComplete();
+      await this.resetAgentSession();
+    }
+
+    return true;
+  }
+
   close() {
     this.agentSession.close();
   }
@@ -614,6 +633,14 @@ class SessionManager extends EventEmitter {
     }
 
     session.sendMessage(content, source);
+  }
+
+  async stopGeneration(sessionName: string): Promise<boolean> {
+    const session = this.sessions.get(sessionName);
+    if (!session) {
+      return false;
+    }
+    return session.stopGeneration();
   }
 
   getClientSession(clientId: string): string | null {

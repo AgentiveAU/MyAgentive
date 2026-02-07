@@ -797,7 +797,7 @@ export async function startServer(): Promise<void> {
   });
 }
 
-function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
+async function handleWSMessage(ws: WSClient, message: IncomingWSMessage): Promise<void> {
   const clientId = ws.clientId!;
 
   const sendToClient = (msg: OutgoingWSMessage) => {
@@ -869,6 +869,14 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
         isProcessing: session.processing,
         processingStartTime: session.processingStartTime,
       });
+      break;
+    }
+
+    case "stop": {
+      const stopped = await sessionManager.stopGeneration(message.sessionName);
+      if (stopped) {
+        console.log(`Client ${clientId} stopped generation in session: ${message.sessionName}`);
+      }
       break;
     }
 
