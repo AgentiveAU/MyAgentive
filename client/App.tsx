@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
 import { ChatWindow } from "./components/ChatWindow";
 import { LoginForm } from "./components/LoginForm";
@@ -575,12 +575,15 @@ export default function App() {
   }, [isAuthenticated]);
 
   // Auto-select first session or create default
+  const creatingDefaultRef = useRef(false);
   useEffect(() => {
     if (isAuthenticated && sessions.length > 0 && !currentSessionName) {
       switchSession(sessions[0].name);
-    } else if (isAuthenticated && sessions.length === 0 && !sessionsLoading && isConnected) {
+      creatingDefaultRef.current = false;
+    } else if (isAuthenticated && sessions.length === 0 && !sessionsLoading && isConnected && !creatingDefaultRef.current) {
       // Only create default session after fetchSessions completes (sessionsLoading = false)
-      // and confirms there are truly no sessions
+      // and confirms there are truly no sessions. Guard prevents duplicate creation.
+      creatingDefaultRef.current = true;
       createSession("default");
     }
   }, [isAuthenticated, sessions, currentSessionName, isConnected, sessionsLoading]);
