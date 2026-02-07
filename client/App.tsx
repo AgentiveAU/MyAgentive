@@ -115,6 +115,11 @@ export default function App() {
             mediaFiles: m.metadata?.mediaFiles,
           }))
         );
+        // Restore loading state if session is still processing
+        if (message.isProcessing) {
+          setIsLoading(true);
+          setProcessingStartTime(message.processingStartTime ?? Date.now());
+        }
         break;
 
       case "user_message":

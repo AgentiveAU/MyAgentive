@@ -73,6 +73,7 @@ class ManagedSession {
   private isListening = false;
   private isResetting = false;
   private isProcessing = false;
+  private processingStartedAt: number | null = null;
   private eventEmitter: EventEmitter;
   private mediaSnapshotBeforeMessage: Set<string> = new Set();
   private sdkSessionId: string | null = null;
@@ -90,6 +91,16 @@ class ManagedSession {
     this.agentSession = new AgentSession({
       resumeSessionId: this.sdkSessionId || undefined,
     });
+  }
+
+  // Check if the session is currently processing a message
+  get processing(): boolean {
+    return this.isProcessing;
+  }
+
+  // Get the timestamp when processing started
+  get processingStartTime(): number | null {
+    return this.processingStartedAt;
   }
 
   // Get the media directory path
@@ -184,6 +195,7 @@ class ManagedSession {
     }
 
     this.isProcessing = true;
+    this.processingStartedAt = Date.now();
 
     try {
       // Take snapshot of media directory before processing
@@ -237,6 +249,7 @@ class ManagedSession {
   // Called when agent completes processing (from handleSDKMessage on result)
   private markProcessingComplete(): void {
     this.isProcessing = false;
+    this.processingStartedAt = null;
   }
 
   private handleSDKMessage(message: any) {
