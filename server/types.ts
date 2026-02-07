@@ -64,6 +64,8 @@ export interface WSHistoryMessage {
   type: "history";
   messages: ChatMessage[];
   sessionName: string;
+  isProcessing?: boolean;
+  processingStartTime?: number | null;
 }
 
 export interface WSUserMessage {

@@ -824,6 +824,8 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
         type: "history",
         messages,
         sessionName: message.sessionName,
+        isProcessing: session.processing,
+        processingStartTime: session.processingStartTime,
       });
       break;
     }
@@ -864,6 +866,8 @@ function handleWSMessage(ws: WSClient, message: IncomingWSMessage): void {
         type: "history",
         messages,
         sessionName: message.sessionName,
+        isProcessing: session.processing,
+        processingStartTime: session.processingStartTime,
       });
       break;
     }
