@@ -18,11 +18,12 @@ interface MessageData {
 interface MessageListProps {
   messages: MessageData[];
   isLoading?: boolean;
+  processingStartTime?: number | null;
   onRetry?: (content: string) => void;
   onSuggest?: (prompt: string) => void;
 }
 
-export function MessageList({ messages, isLoading, onRetry, onSuggest }: MessageListProps) {
+export function MessageList({ messages, isLoading, processingStartTime, onRetry, onSuggest }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom whenever messages change
@@ -71,7 +72,7 @@ export function MessageList({ messages, isLoading, onRetry, onSuggest }: Message
               <Message key={msg.id} message={msg} onRetry={onRetry} />
             )
           )}
-          {isLoading && <TypingIndicator />}
+          {isLoading && <TypingIndicator startTime={processingStartTime ?? undefined} />}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>

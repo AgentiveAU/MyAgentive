@@ -1,7 +1,29 @@
+import { useState, useEffect } from "react";
 import { Bot } from "lucide-react";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 
-export function TypingIndicator() {
+interface TypingIndicatorProps {
+  startTime?: number;
+}
+
+function formatElapsed(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+export function TypingIndicator({ startTime }: TypingIndicatorProps) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!startTime) return;
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
   return (
     <div className="flex gap-3">
       {/* Avatar */}
@@ -12,7 +34,7 @@ export function TypingIndicator() {
       </Avatar>
 
       {/* Typing Animation */}
-      <div className="flex items-center gap-1 bg-muted px-4 py-2 rounded-lg">
+      <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-lg">
         <div className="flex items-center gap-1">
           <div
             className="w-2 h-2 bg-muted-foreground/40 rounded-full animate-bounce"
@@ -27,6 +49,11 @@ export function TypingIndicator() {
             style={{ animationDelay: "400ms", animationDuration: "1.4s" }}
           />
         </div>
+        {elapsed >= 10 && (
+          <span className="text-xs text-muted-foreground">
+            {formatElapsed(elapsed)}
+          </span>
+        )}
       </div>
     </div>
   );

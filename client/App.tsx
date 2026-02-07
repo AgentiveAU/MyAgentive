@@ -72,6 +72,7 @@ export default function App() {
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(() => {
     // Load token from localStorage on initial mount
@@ -130,6 +131,7 @@ export default function App() {
             },
           ]);
           setIsLoading(true);
+          setProcessingStartTime(Date.now());
         }
         break;
 
@@ -143,7 +145,6 @@ export default function App() {
             timestamp: new Date().toISOString(),
           },
         ]);
-        setIsLoading(false);
         break;
 
       case "tool_use":
@@ -162,6 +163,7 @@ export default function App() {
 
       case "result":
         setIsLoading(false);
+        setProcessingStartTime(null);
         // Session list updates are now handled via real-time WebSocket broadcasts
         break;
 
@@ -178,6 +180,7 @@ export default function App() {
       case "error":
         console.error("Server error:", message.error);
         setIsLoading(false);
+        setProcessingStartTime(null);
         toast.error(message.error || "An error occurred");
         break;
 
@@ -510,6 +513,7 @@ export default function App() {
     setCurrentSessionName(name);
     setMessages([]);
     setIsLoading(false);
+    setProcessingStartTime(null);
     setContextInfo(null); // Reset context info when switching sessions
 
     if (isConnected) {
@@ -533,6 +537,7 @@ export default function App() {
     ]);
 
     setIsLoading(true);
+    setProcessingStartTime(Date.now());
 
     sendJsonMessage({
       type: "chat",
@@ -587,6 +592,7 @@ export default function App() {
         toast.success("Reconnected to server", { duration: 2000 });
         // Clear loading state on reconnect - the previous request was lost (fixes #78 frontend)
         setIsLoading(false);
+        setProcessingStartTime(null);
       }
       sessionStorage.setItem("ws_connected", "true");
       toast.dismiss("connecting");
@@ -642,6 +648,7 @@ export default function App() {
           messages={messages}
           isConnected={isConnected}
           isLoading={isLoading}
+          processingStartTime={processingStartTime}
           onSendMessage={handleSendMessage}
           onLogout={handleLogout}
           contextInfo={contextInfo}
