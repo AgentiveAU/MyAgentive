@@ -35,25 +35,44 @@ if [ -f "$INSTALL_DIR/myagentive" ] && [ ! -L "$INSTALL_DIR/myagentive" ]; then
     rm -f "$INSTALL_DIR/myagentivectl"
 fi
 
-# Copy binaries and tools
-cp -rf myagentive myagentivectl "$BIN_DIR/"
+# Copy binaries and tools (use \cp to bypass shell aliases like cp='cp -i')
+\cp -rf myagentive myagentivectl "$BIN_DIR/"
+chmod +x "$BIN_DIR/myagentive"
+chmod +x "$BIN_DIR/myagentivectl"
+
+# Copy save-for-download and send-file tools
+if [ -f "save-for-download" ]; then
+    \cp -f save-for-download "$BIN_DIR/"
+    chmod +x "$BIN_DIR/save-for-download"
+fi
+if [ -f "send-file" ]; then
+    \cp -f send-file "$BIN_DIR/"
+    chmod +x "$BIN_DIR/send-file"
+fi
 
 # Always overwrite system_prompt.md (product-managed, safe to replace)
-rm -f "$INSTALL_DIR/system_prompt.md"
-\cp -f default-system-prompt.md "$INSTALL_DIR/system_prompt.md"
+if [ -f "default-system-prompt.md" ]; then
+    rm -f "$INSTALL_DIR/system_prompt.md"
+    \cp -f default-system-prompt.md "$INSTALL_DIR/system_prompt.md"
+    \cp -f default-system-prompt.md "$INSTALL_DIR/"
+fi
 
-# Copy default prompt files for reference
-\cp -f default-system-prompt.md "$INSTALL_DIR/"
-\cp -f default-user-prompt.md "$INSTALL_DIR/"
-
-# Create user prompt only if it doesn't exist (user-managed, never overwrite)
-if [ ! -f "$INSTALL_DIR/user_prompt.md" ]; then
-    \cp -f default-user-prompt.md "$INSTALL_DIR/user_prompt.md"
+# Copy default user prompt and create user_prompt.md only if it doesn't exist
+if [ -f "default-user-prompt.md" ]; then
+    \cp -f default-user-prompt.md "$INSTALL_DIR/"
+    if [ ! -f "$INSTALL_DIR/user_prompt.md" ]; then
+        \cp -f default-user-prompt.md "$INSTALL_DIR/user_prompt.md"
+    fi
 fi
 
 # Copy other files
-cp -rf LICENSE install.sh "$INSTALL_DIR/"
-cp -rf dist "$INSTALL_DIR/"
+\cp -rf LICENSE install.sh "$INSTALL_DIR/" 2>/dev/null || true
+
+# Copy dist files (clean first to remove old versioned assets)
+if [ -d "dist" ]; then
+    rm -rf "${INSTALL_DIR:?}/dist"/* 2>/dev/null || true
+    \cp -r dist/* "$INSTALL_DIR/dist/"
+fi
 
 # Copy skills to discoverable location
 mkdir -p "$INSTALL_DIR/skills"
@@ -66,10 +85,16 @@ mkdir -p "$INSTALL_DIR/.claude"
 rm -rf "$INSTALL_DIR/.claude/skills"
 ln -sf "../skills" "$INSTALL_DIR/.claude/skills"
 
-# Create symlinks for CLI
+# Create symlinks for CLI and tools
 mkdir -p "${HOME}/.local/bin"
 ln -sf "$BIN_DIR/myagentive" "${HOME}/.local/bin/myagentive"
 ln -sf "$BIN_DIR/myagentivectl" "${HOME}/.local/bin/myagentivectl"
+if [ -f "$BIN_DIR/save-for-download" ]; then
+    ln -sf "$BIN_DIR/save-for-download" "${HOME}/.local/bin/save-for-download"
+fi
+if [ -f "$BIN_DIR/send-file" ]; then
+    ln -sf "$BIN_DIR/send-file" "${HOME}/.local/bin/send-file"
+fi
 
 echo ""
 echo "MyAgentive v${VERSION} installed successfully!"
