@@ -1,32 +1,91 @@
 ---
 name: myagentive
-description: Understand, configure, and troubleshoot MyAgentive, an open-source personal AI agent for power users. This skill should be used when users ask about MyAgentive configuration, setup, onboarding, troubleshooting, API key management, file locations, architecture, or how the product (You) works.
+description: Understand, configure, and troubleshoot MyAgentive, an open-source personal AI agent for power users. This skill should be used when users ask about MyAgentive configuration, setup, onboarding, troubleshooting, API key management, file locations, architecture, how the product (You) works, REST API, WebSocket protocol, CLI tools, file delivery, session management, or running multiple instances.
 ---
 
 # MyAgentive
 
 ## Overview
 
-MyAgentive (https://MyAgentive.ai) is an open-source (https://github.com/AgentiveAU/MyAgentive) personal AI agent built by Agentive (https://agentive.au) using the Claude Agent SDK. It provides Telegram and web interfaces for interacting with a powerful AI assistant that runs locally on your machine.
+MyAgentive (https://MyAgentive.ai) is an open-source (https://github.com/AgentiveAU/MyAgentive) personal AI agent built by Agentive (https://agentive.au) using the Claude Agent SDK. It provides Telegram and web interfaces for interacting with a powerful AI assistant that runs locally on your machine or a cloud server.
+
+**Current Version:** Check `~/.myagentive/bin/myagentive --version` or server startup logs.
 
 **Key Features:**
 - Telegram bot integration for mobile access
-- Web interface for desktop use
+- Web interface (PWA) for desktop and mobile browsers
 - Full system access (files, commands, web search)
 - Session-based conversations with persistent history
-- Media file handling (audio, video, images)
-- Extensible via API keys for additional services
+- Media file handling (audio, video, images, documents)
+- File delivery: agent saves files to media directory, automatically delivered to all interfaces
+- CLI tools: `myagentivectl`, `send-file`, `save-for-download`
+- Multiple model support: opus, sonnet, haiku (runtime switching)
+- Session resume across restarts (SDK session persistence)
+- Context compaction for long conversations
+- Extensible via skills and API keys for additional services
+- Activity monitoring via Telegram group
 
 ## Key File Locations
 
 | Item | Path |
 |------|------|
+| Home directory | `~/.myagentive/` (or `$MYAGENTIVE_HOME`) |
 | Configuration | `~/.myagentive/config` |
 | System prompt (product-managed) | `~/.myagentive/system_prompt.md` |
 | User prompt (your customisations) | `~/.myagentive/user_prompt.md` |
 | Database | `~/.myagentive/data/myagentive.db` |
 | Media files | `~/.myagentive/media/` |
-| Source code | Project root (where you cloned the repo) |
+| Binary | `~/.myagentive/bin/myagentive` |
+| Control script | `~/.myagentive/bin/myagentivectl` |
+| Send file tool | `~/.myagentive/bin/send-file` |
+| Save for download tool | `~/.myagentive/bin/save-for-download` |
+| Skills | `~/.myagentive/skills/` |
+| Skills symlink (SDK) | `~/.myagentive/.claude/skills -> ../skills` |
+| Logs (standalone mode) | `~/.myagentive/myagentive.log` |
+| PID file (standalone mode) | `~/.myagentive/myagentive.pid` |
+| Memory directory | `~/.myagentive/memory/` |
+| Skill backups | `~/.myagentive/backups/` |
+| CLI symlinks | `~/.local/bin/myagentive`, `myagentivectl`, `send-file`, `save-for-download` |
+
+### Full Directory Structure
+
+```
+~/.myagentive/
+├── config                    # Main configuration (KEY=value format)
+├── system_prompt.md          # Product-managed system prompt (overwritten on upgrade)
+├── user_prompt.md            # User customisations (preserved on upgrade)
+├── default-system-prompt.md  # Backup of default system prompt
+├── default-user-prompt.md    # Backup of default user prompt
+├── myagentive.log            # Log file (standalone/nohup mode)
+├── myagentive.pid            # PID file (standalone/nohup mode)
+├── bin/
+│   ├── myagentive            # Standalone binary
+│   ├── myagentivectl         # Service control script
+│   ├── send-file             # Send file to user CLI tool
+│   └── save-for-download     # Move file to media directory
+├── data/
+│   └── myagentive.db         # SQLite database (WAL mode)
+├── media/                    # File delivery directory (outbox)
+│   ├── audio/
+│   ├── voice/
+│   ├── videos/
+│   ├── photos/
+│   └── documents/
+├── dist/                     # Web frontend assets
+├── skills/                   # Agent skills
+│   ├── myagentive/           # Self-knowledge skill (this)
+│   ├── deepgram-transcription/
+│   ├── gemini-imagen/
+│   ├── docx/
+│   ├── xlsx/
+│   ├── pptx/
+│   ├── pdf/
+│   └── ...
+├── .claude/
+│   └── skills -> ../skills   # Symlink for SDK skill discovery
+├── memory/                   # Persistent memory across sessions
+└── backups/                  # Skill backups from upgrades
+```
 
 ### Prompt System (Two-File Architecture)
 
@@ -36,36 +95,69 @@ MyAgentive uses two prompt files that are combined at startup:
 
 2. **`user_prompt.md`** (user-managed): Your personal customisations, preferences, and instructions. This file is never overwritten by upgrades. Edit this file to customise the agent's behaviour.
 
+Both files support `~` and `~/.myagentive` path references, which are expanded to absolute paths at startup.
+
 Changes to either file take effect on restart.
 
-### Media Directory Structure
+## Configuration
+
+### Config File Format
+
+The config file at `~/.myagentive/config` uses simple KEY=value format:
 
 ```
-~/.myagentive/media/
-├── audio/      # Downloaded/uploaded audio files
-├── voice/      # Voice messages
-├── videos/     # Video files
-├── photos/     # Images
-└── documents/  # Other documents
+# Comments start with #
+PORT=3847
+NODE_ENV=production
+WEB_PASSWORD=your-password
+API_KEY=auto-generated-hex-string
+TELEGRAM_BOT_TOKEN=7123456789:AAHxxxxxxxxxx
+TELEGRAM_USER_ID=123456789
+DATABASE_PATH=./data/myagentive.db
+MEDIA_PATH=./media
 ```
 
-## Required Configuration
+**Important format rules:**
+- No quotes around values: `KEY=value` not `KEY="value"`
+- No trailing spaces
+- Each variable on its own line
+- Comments with `#` at line start
+- Relative paths resolve to `~/.myagentive/`
 
-These are set during the first-run setup wizard:
+### Required Configuration
 
 | Variable | Description | How to Get |
 |----------|-------------|------------|
 | `WEB_PASSWORD` | Password for web interface | Set during setup (or auto-generated) |
-| `API_KEY` | REST API authentication | Auto-generated (64 hex chars) |
+| `API_KEY` | REST API / CLI authentication | Auto-generated (64 hex chars) |
 
 ### Optional Telegram Configuration
 
-Telegram is optional. You can run MyAgentive in web-only mode. If you want Telegram:
+Telegram is optional. You can run MyAgentive in web-only mode.
 
 | Variable | Description | How to Get |
 |----------|-------------|------------|
 | `TELEGRAM_BOT_TOKEN` | Bot token for Telegram | Create bot via @BotFather |
 | `TELEGRAM_USER_ID` | Your numeric Telegram ID | Get from @userinfobot |
+| `TELEGRAM_MONITORING_GROUP_ID` | Activity notifications group | Add @getidsbot to group |
+| `TELEGRAM_ALLOWED_GROUPS` | Comma-separated group IDs | Groups where bot responds when @mentioned |
+| `TELEGRAM_GROUP_POLICY` | Default group policy: `open`, `allowlist`, `disabled` | Default: `allowlist` |
+| `TELEGRAM_GROUP_POLICIES` | Per-group JSON overrides | `{"123": "open", "-456": "disabled"}` |
+| `TELEGRAM_REACTION_ACK` | Show eye reaction on receipt | Default: `true` |
+| `TELEGRAM_FRAGMENT_BUFFER_MS` | Buffer time for message coalescence | Default: `500` |
+| `TELEGRAM_LINK_PREVIEW` | Enable link previews in responses | Default: `true` |
+
+### Other Optional Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `3847` |
+| `NODE_ENV` | Environment (production/development) | `development` |
+| `DOMAIN` | Server domain | `localhost` |
+| `AGENT_ID` | Instance identifier shown in Web UI | (empty) |
+| `DATABASE_PATH` | SQLite database path | `./data/myagentive.db` |
+| `MEDIA_PATH` | Media storage directory | `./media` |
+| `MYAGENTIVE_HOME` | Base installation directory (env var, not in config) | `~/.myagentive` |
 
 For detailed Telegram setup instructions, see `references/telegram-setup.md`.
 
@@ -81,19 +173,230 @@ These enable additional features. Add to `~/.myagentive/config` as needed:
 | Anthropic | `ANTHROPIC_API_KEY` | Pay-per-use API | N/A (leave empty for Claude Code subscription) |
 | LinkedIn | Multiple tokens | Social media posting | - |
 | Twitter/X | Multiple tokens | Social media posting | 1,500 tweets/month |
+| OpenAI | `OPENAI_API_KEY` | Vision-based Android UI detection | - |
+| Twilio | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | Phone calls and SMS | Trial credits |
 
 For detailed setup instructions with provider URLs, see `references/api-keys.md`.
 
-## Quick Commands
+## File Delivery System (Outbox Model)
 
-### Development
+MyAgentive automatically delivers files to all connected clients (web and Telegram).
+
+### How It Works
+
+1. Agent saves a file to `~/.myagentive/media/` (or any subdirectory)
+2. The session manager takes a snapshot of the media directory before each message
+3. After the agent completes, it detects new files by comparing to the snapshot
+4. New files are broadcast as `file_delivery` events to all subscribers
+5. Web UI shows inline media; Telegram sends as file attachments
+6. File metadata is persisted in the database for history
+
+### File Naming Rules
+
+- Use descriptive, user-friendly filenames (e.g., `sunset-landscape.png` not `image_001.png`)
+- If a skill creates files with temporary names, **move** (rename) them to user-friendly names using `mv`, do NOT copy
+- Do NOT save deliverable files elsewhere unless specifically requested
+
+### CLI Tools
+
+**`send-file`** - Explicitly send a file to all connected clients:
+```bash
+send-file <file-path> [caption]
+# Examples:
+send-file ~/.myagentive/media/videos/demo.mp4
+send-file /tmp/report.pdf "Quarterly report attached"
+# Files outside media/ are moved there automatically
+```
+
+**`save-for-download`** - Move a file to media directory for web download:
+```bash
+save-for-download <source-file> [target-filename]
+# Examples:
+save-for-download /tmp/video.mp4
+save-for-download /tmp/video.mp4 my-custom-name.mp4
+```
+
+Both tools are available at `~/.local/bin/` after installation.
+
+## CLI Management (myagentivectl)
+
+The control script manages the MyAgentive service. It supports both systemd-managed and standalone (nohup) modes.
+
+```bash
+myagentivectl start        # Start in background
+myagentivectl stop         # Stop the service
+myagentivectl restart      # Restart
+myagentivectl status       # Check if running
+myagentivectl logs         # Follow log output
+myagentivectl config       # Edit config file
+myagentivectl set-agent-id # Set/change the Agent ID
+```
+
+**systemd mode:** If `/etc/systemd/system/myagentive.service` exists, myagentivectl uses systemctl commands. Logs via `journalctl`.
+
+**standalone mode:** Uses nohup with PID file tracking. Logs to `~/.myagentive/myagentive.log`.
+
+## Session Management
+
+Sessions are named conversations that persist across restarts and are shared between web and Telegram.
+
+### Session Features
+
+- **Create**: Sessions auto-create when you send a message, or use `/new [name]`
+- **Switch**: `/session <name>` in Telegram, click in web sidebar
+- **Rename**: Set a display title via web UI (PATCH `/api/sessions/:name`)
+- **Archive**: Hide inactive sessions (recoverable)
+- **Unarchive**: Restore archived sessions
+- **Pin**: Pin favourite sessions to top
+- **Delete**: Permanent removal (cascades messages)
+
+### SDK Session Resume
+
+MyAgentive stores the Claude SDK session ID in the database. When the server restarts, sessions resume with their existing context window rather than starting fresh. If a session errors, the SDK session ID is cleared and a fresh session starts.
+
+### Context Compaction
+
+When conversations grow long and approach the context limit, the SDK automatically compacts (summarises) older messages. You can also trigger this manually:
+
+- Telegram: `/compact [instructions]`
+- The agent can use `/compact` internally
+
+The web UI shows context usage percentage and notifies when compaction occurs.
+
+## Model Switching
+
+Switch between Claude models at runtime:
+
+- **Telegram**: `/model <opus|sonnet|haiku>`
+- **Web**: Model selector in UI
+
+The change applies to new sessions. Existing sessions keep their model until restarted. Default model: `opus`.
+
+## Telegram Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Start the bot / show welcome |
+| `/help` | Show available commands |
+| `/session <name>` | Switch to a named session |
+| `/new [name]` | Create new session (random name if omitted) |
+| `/list` | List all sessions |
+| `/status` | Show current session info |
+| `/model <opus\|sonnet\|haiku>` | Show or change AI model |
+| `/usage` | Show usage statistics |
+| `/replymode <off\|first\|all>` | Set reply threading mode |
+| `/linkpreview` | Show link preview settings |
+| `/compact [instructions]` | Compact context (summarise older messages) |
+
+### Reply Modes
+
+- **off**: No reply threading (messages sent without reply_to)
+- **first**: Reply only to the first message in a conversation (default)
+- **all**: Reply to each message separately
+
+### Telegram Features
+
+- Eye reaction (👀) as acknowledgement on receiving messages
+- Fragment buffering: coalescence of rapid messages (500ms default)
+- Forum/topic support: sessions mapped to Telegram topics
+- Group policy: control bot behaviour in groups (open/allowlist/disabled)
+- Media handling: voice, audio, document, video, photo uploads
+
+## REST API
+
+All API endpoints require authentication via cookie, API key header (`Authorization: Bearer <key>`), or query parameter (`?api_key=<key>`).
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/health` | GET | None | Health check with component status |
+| `/api/auth/login` | POST | None | Password login, returns token |
+| `/api/auth/logout` | POST | Cookie | Clear session |
+| `/api/auth/verify` | GET | Optional | Check authentication status |
+| `/api/sessions` | GET | Required | List sessions (?archived=1 for archived) |
+| `/api/sessions` | POST | Required | Create session (body: `{name}`) |
+| `/api/sessions/:name` | GET | Required | Get session details |
+| `/api/sessions/:name` | PATCH | Required | Update: `{archived, title, pinned}` |
+| `/api/sessions/:name` | DELETE | Required | Delete session permanently |
+| `/api/sessions/:name/messages` | GET | Required | Get message history |
+| `/api/media/*` | GET | Required | Serve media files (Range requests supported) |
+| `/api/files/*` | GET | Required | Serve files from ~/.myagentive/ |
+| `/api/upload` | POST | Required | Upload file (multipart/form-data) |
+| `/api/send-file` | POST | API Key | Broadcast file to all clients |
+
+### Health Check Response
+
+```json
+{
+  "status": "ok",
+  "agentId": "AG001",
+  "components": {
+    "database": { "status": "ok" },
+    "telegram": { "status": "ok", "botUsername": "my_bot" },
+    "sessions": { "status": "ok", "total": 5 },
+    "memory": { "status": "ok", "heapUsedMB": 45, "rssMB": 120 }
+  }
+}
+```
+
+## WebSocket Protocol
+
+Connect to `ws://localhost:3847/ws?token=<auth_token>` or `ws://localhost:3847/ws?api_key=<key>`.
+
+### Incoming Messages (Client to Server)
+
+| Type | Fields | Purpose |
+|------|--------|---------|
+| `subscribe` | `sessionName` | Subscribe to session updates |
+| `chat` | `sessionName`, `content` | Send a message |
+| `switch_session` | `sessionName` | Switch to different session |
+| `ping` | (none) | Keep-alive (Cloudflare compatibility) |
+
+### Outgoing Messages (Server to Client)
+
+| Type | Fields | Purpose |
+|------|--------|---------|
+| `connected` | `message` | Initial connection confirmation |
+| `history` | `messages`, `sessionName` | Message history on subscribe |
+| `user_message` | `content`, `sessionName`, `source` | Message from another client |
+| `assistant_message` | `content`, `sessionName` | Agent response text |
+| `tool_use` | `toolName`, `toolId`, `toolInput`, `sessionName` | Tool invocation |
+| `result` | `success`, `sessionName`, `cost`, `duration` | Agent turn complete |
+| `file_delivery` | `filePath`, `filename`, `sessionName`, `webUrl` | New file available |
+| `context_update` | `usedTokens`, `maxTokens`, `usedPercentage` | Context window usage |
+| `compacting` | `sessionName` | Context compaction started |
+| `compacted` | `sessionName`, `preTokens`, `trigger` | Compaction complete |
+| `sessions_list` | `sessions`, `archivedSessions` | Real-time session list update |
+| `session_switched` | `sessionName`, `session` | Session switch confirmation |
+| `error` | `error` | Error message |
+| `pong` | `timestamp` | Keep-alive response |
+
+## Running Multiple Instances
+
+Use `MYAGENTIVE_HOME` to run separate instances with different configs, databases, and bots:
+
+```bash
+MYAGENTIVE_HOME=~/.myagentive-work myagentive
+MYAGENTIVE_HOME=~/.myagentive-personal myagentive
+```
+
+Each instance needs:
+- Its own config with unique PORT, bot token, etc.
+- Set `AGENT_ID` to distinguish instances in the web UI
+
+## Development Commands
 
 ```bash
 # Install dependencies
 bun install
 
-# Run development (server + client)
+# Run development (server + client with hot reload)
 bun run dev
+
+# Run server only
+bun run dev:server
+
+# Run client only
+bun run dev:client
 
 # Build frontend
 bun run build
@@ -103,128 +406,175 @@ bun run build:binary
 
 # Build standalone binary (Linux)
 bun run build:binary:linux
+
+# Run database migrations
+bun run db:migrate
+
+# Run tests
+bun run test
 ```
 
-### Configuration
+## Installation Methods
+
+### Binary Installation (Recommended)
+
+Download from GitHub releases, extract, and run the install script:
 
 ```bash
-# View current config
-cat ~/.myagentive/config
-
-# Reset config (triggers setup wizard on next run)
-rm ~/.myagentive/config
-
-# Validate config
-python .claude/skills/myagentive/scripts/check_config.py
+tar -xzf MyAgentive-v*.tar.gz
+cd MyAgentive
+./install.sh
 ```
 
-### Database
+The installer:
+- Installs to `~/.myagentive/`
+- Creates `~/.local/bin/` symlinks
+- Backs up existing skills before upgrading
+- Preserves user_prompt.md and config
+- Overwrites system_prompt.md with latest version
+- Creates `.claude/skills` symlink for SDK compatibility
+
+### Development (From Source)
 
 ```bash
-# Reset database
-rm ~/.myagentive/data/myagentive.db
-# Database recreates automatically on next run
+git clone https://github.com/AgentiveAU/MyAgentive.git
+cd MyAgentive
+bun install
+bun run dev
 ```
+
+### Upgrading
+
+Download the latest release and run `./install.sh` again. It:
+- Stops any running service
+- Backs up skills to `~/.myagentive/backups/`
+- Replaces binary, dist, and bundled skills
+- Preserves config, user_prompt.md, database, and media
+- Overwrites system_prompt.md
+
+## Startup Flow
+
+1. Check for `~/.myagentive/config`; run setup wizard if missing
+2. Load config into environment variables
+3. Import and initialise modules (config, database, server, Telegram, monitoring)
+4. Run database migrations
+5. Set up activity monitoring
+6. Start Express server with WebSocket support
+7. Start Telegram bot (if configured)
+8. Send startup notification to monitoring group
+9. Start hourly token cleanup
+10. Handle graceful shutdown on SIGINT/SIGTERM
+
+## Authentication
+
+### Web Interface
+
+1. User submits password via login form
+2. Server verifies against `WEB_PASSWORD` in config
+3. Creates auth token (7-day expiry) stored in database
+4. Sets httpOnly cookie and returns token for WebSocket auth
+5. Hourly cleanup removes expired tokens
+
+### API Key
+
+The `API_KEY` from config never expires. Used for:
+- REST API calls via `Authorization: Bearer <key>` header
+- WebSocket connection via `?api_key=<key>` query parameter
+- send-file CLI tool via `X-API-Key` header
+
+### Telegram
+
+Bot only responds to the configured `TELEGRAM_USER_ID`. Group access controlled by:
+- `TELEGRAM_ALLOWED_GROUPS`: comma-separated group IDs
+- `TELEGRAM_GROUP_POLICY`: default policy for groups
+- Bot must be @mentioned in groups (does not respond to all messages)
 
 ## Architecture Overview
 
 ```
 server/
 ├── index.ts              # Entry point, bootstraps app
-├── config.ts             # Configuration loading
+├── config.ts             # Configuration loading, path resolution
 ├── server.ts             # Express + WebSocket server
-├── setup-wizard.ts       # First-run configuration
+├── setup-wizard.ts       # First-run interactive setup
+├── version.ts            # Version information
+├── default-system-prompt.md  # Default system prompt
+├── default-user-prompt.md    # Default user prompt template
 ├── core/
 │   ├── ai-client.ts      # Claude Agent SDK integration
 │   └── session-manager.ts # Session orchestration
-├── db/                   # SQLite database layer
-├── telegram/             # Telegram bot handlers
-├── auth/                 # Authentication
-└── utils/                # Utilities (media detection)
-client/                   # React frontend
+├── db/
+│   ├── database.ts       # SQLite with bun:sqlite, WAL mode, embedded migrations
+│   └── repositories/
+│       ├── session-repo.ts  # Session CRUD + SDK session ID
+│       └── message-repo.ts  # Message CRUD + metadata
+├── telegram/
+│   ├── bot.ts               # Grammy bot initialisation + middleware
+│   ├── monitoring.ts        # Activity notifications to group
+│   ├── subscription-manager.ts # Persistent Telegram subscriptions
+│   ├── message-session-tracker.ts # Message-to-session mapping
+│   ├── reply-mode.ts        # Reply threading modes
+│   └── handlers/
+│       ├── command-handler.ts  # /start, /help, /session, /model, /compact, etc.
+│       ├── message-handler.ts  # Text message processing + fragment buffer
+│       └── media-handler.ts    # Voice, audio, document, video, photo
+├── auth/
+│   ├── middleware.ts        # Web auth (password, token, API key)
+│   └── telegram-auth.ts     # Telegram user ID verification
+├── services/
+│   └── transcription.ts     # Deepgram audio transcription
+└── utils/
+    └── media-detector.ts    # MIME type detection, path validation
+
+client/                      # React + Tailwind CSS frontend (PWA)
+skills/                      # Agent skills (.claude/skills/ symlinked here)
+scripts/
+├── build-release.sh         # Build release packages
+├── migrate.ts               # Database migration runner
+└── templates/               # Template files for release packages
 ```
 
-For detailed architecture and source code paths, see `references/architecture.md`.
+For detailed architecture and data flow, see `references/architecture.md`.
 
-## Onboarding Workflow
+## Troubleshooting Quick Reference
 
-To help a new user set up MyAgentive:
-
-### 1. Prerequisites
-- Bun runtime installed (`curl -fsSL https://bun.sh/install | bash`)
-- Telegram account
-
-### 2. Initial Setup
+**Server not starting:**
 ```bash
-# Clone and install
-git clone https://github.com/AgentiveAU/MyAgentive.git
-cd MyAgentive
-bun install
-
-# Run (triggers setup wizard on first run)
-bun run dev
+curl http://localhost:3847/health    # Check if already running
+myagentivectl status                 # Check service status
+cat ~/.myagentive/myagentive.log     # Check logs
 ```
-
-### 3. Setup Wizard Steps
-1. **Telegram Integration** (optional) - Choose 'n' for web-only mode, or 'y' to set up Telegram:
-   - **Telegram Bot Token** - Create via @BotFather, paste token
-   - **Telegram User ID** - Get from @userinfobot, paste numeric ID
-   - **Monitoring Group** (optional) - For activity logging
-2. **Web Password** - Enter custom or press Enter for auto-generated
-3. **Agent ID** (optional) - Identifier shown in web UI
-4. **Server Port** - Default 3847
-
-### 4. Optional: Add API Keys
-
-For transcription (voice messages):
-1. Create account at https://deepgram.com ($200 free credit)
-2. Go to Console > API Keys > Create new key
-3. Add to config: `echo "DEEPGRAM_API_KEY=your_key" >> ~/.myagentive/config`
-
-For image generation:
-1. Get API key from https://ai.google.dev
-2. Add to config: `echo "GEMINI_API_KEY=your_key" >> ~/.myagentive/config`
-
-## Troubleshooting
-
-### Common Issues
 
 **Bot not responding:**
-- Verify `TELEGRAM_USER_ID` is your numeric ID (not @username)
-- Check bot token is valid (contains `:`)
-- Ensure bot was started with /start command
+```bash
+grep TELEGRAM_BOT_TOKEN ~/.myagentive/config   # Must contain ':'
+grep TELEGRAM_USER_ID ~/.myagentive/config     # Must be numeric
+```
 
 **Web interface not loading:**
-- Check server is running on configured port (default 3847)
-- Try `curl http://localhost:3847/health`
+```bash
+curl http://localhost:3847/health    # Check server health
+grep PORT ~/.myagentive/config       # Verify port
+```
 
-**API key not working:**
-- Check key is in config: `grep KEY_NAME ~/.myagentive/config`
-- No quotes around values
-- No trailing spaces
+**Config issues:**
+```bash
+cat ~/.myagentive/config             # View config
+rm ~/.myagentive/config              # Reset (triggers setup wizard)
+```
+
+**Database issues:**
+```bash
+rm ~/.myagentive/data/myagentive.db  # Reset database (loses history)
+# Database recreates automatically on next run
+```
 
 For detailed troubleshooting, see `references/troubleshooting.md`.
-
-## Telegram Commands
-
-| Command | Description |
-|---------|-------------|
-| `/start` | Start the bot |
-| `/help` | Show help message |
-| `/session <name>` | Switch to named session |
-| `/new [name]` | Create new session |
-| `/list` | List all sessions |
-| `/status` | Show current session |
-| `/model <opus\|sonnet\|haiku>` | Change AI model |
-| `/usage` | Show usage statistics |
 
 ## Resources
 
 ### references/
-- `architecture.md` - Detailed source code reference
-- `api-keys.md` - API key setup guides with URLs
-- `troubleshooting.md` - Common issues and fixes
-- `telegram-setup.md` - Telegram bot configuration
-
-### scripts/
-- `check_config.py` - Validate MyAgentive configuration
+- `architecture.md` - Detailed architecture, data flow, SDK integration, database schema
+- `api-keys.md` - API key setup guides with provider URLs
+- `troubleshooting.md` - Common issues, error messages, and fixes
+- `telegram-setup.md` - Telegram bot configuration step-by-step

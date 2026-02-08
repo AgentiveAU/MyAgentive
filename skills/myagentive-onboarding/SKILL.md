@@ -1,6 +1,6 @@
 ---
 name: myagentive-onboarding
-description: Onboard new MyAgentive users, explain capabilities, and help set up integrations. Use when welcoming new users, explaining what MyAgentive can do, checking integration status, or helping configure API keys and services.
+description: Onboard new MyAgentive users, explain capabilities, and help set up integrations. Use when welcoming new users, explaining what MyAgentive can do, checking integration status, helping configure API keys and services, or when users ask "what can you do" or "how do I get started".
 ---
 
 # MyAgentive Onboarding
@@ -9,56 +9,127 @@ Use this skill when onboarding new users, explaining MyAgentive capabilities, or
 
 ## What is MyAgentive?
 
-MyAgentive is your personal AI agent that runs on your machine (or a cloud server) and can perform real tasks autonomously. Unlike chatbots that only provide information, MyAgentive can:
+MyAgentive (https://MyAgentive.ai) is your personal AI agent built by Agentive (https://agentive.au). Unlike chatbots that only provide information, MyAgentive runs on your machine (or a cloud server) and can perform real tasks autonomously. It has full access to your system, files, and the internet through a powerful tool set including Bash, file operations, web search, and more.
 
-- Create and deploy websites
-- Post to social media
-- Generate images, audio, and video
-- Transcribe audio/video content
-- Make phone calls and send SMS
-- Read and send emails
-- Create and edit documents (Word, Excel, PowerPoint, PDF)
-- Control your Android phone remotely
-- Manage your online presence
-- Automate repetitive tasks
+**Access it from:**
+- **Web interface** (always available): Open `http://localhost:3847` (or your configured port/domain) in a browser
+- **Telegram** (optional): Chat with your bot from any device, anywhere
+- Both interfaces share the same sessions, so you can start on one and continue on the other
+- MyAgentive works perfectly in web-only mode; Telegram is an optional add-on
 
-## Capability Categories
+## Getting Started (First Run)
+
+When you first start MyAgentive, the setup wizard will ask:
+
+1. **Web password** (required): For logging into the web interface
+2. **Telegram** (optional): Bot token and your user ID; skip if you want web-only mode
+3. **Monitoring group** (optional): A Telegram group for activity notifications
+4. **Agent ID** (optional): A label shown in the web UI (useful for multiple instances)
+5. **Port** (optional): Server port, defaults to 3847
+
+After setup, your config is saved to `~/.myagentive/config`. Start using MyAgentive by:
+- Opening `http://localhost:3847` in a browser (always available)
+- Opening your Telegram bot and sending a message (if Telegram was configured)
+
+## Core Capabilities (Built-in)
+
+These work immediately, no setup required:
+
+| Capability | How |
+|------------|-----|
+| Run bash commands | Full terminal access |
+| Read, write, and edit files | On your machine or server |
+| Search the web | Real-time web search and page fetching |
+| Create documents | Word (.docx), Excel (.xlsx), PowerPoint (.pptx), PDF skills |
+| File delivery | Save files to `~/.myagentive/media/` and they are delivered to all interfaces |
+| Session management | Multiple named conversations that persist across restarts |
+| Context persistence | SDK session resume means conversations survive server restarts |
+| Model switching | Switch between opus (powerful), sonnet (balanced), haiku (fast) |
+
+## Sessions: How Conversations Work
+
+MyAgentive organises conversations into **sessions**. Each session has its own context and history.
+
+**Web interface:** Click sessions in the sidebar to switch, or create new ones. The web UI also shows context usage, allows archiving/pinning sessions, and supports model switching.
+
+**Telegram commands** (if configured):
+- `/session <name>` - Switch to a session
+- `/new [name]` - Create a new session
+- `/list` - See all sessions
+- `/status` - Current session info
+- `/model <opus|sonnet|haiku>` - Change AI model
+- `/compact` - Compress context when conversations get long
+
+If both interfaces are configured, sessions are shared between them. You can start a conversation on Telegram and continue it on the web, or vice versa.
+
+## File Delivery: Sending Files to You
+
+When MyAgentive creates a file and saves it to `~/.myagentive/media/` (or subdirectories), the file is automatically delivered:
+- **Web**: Shows inline in the chat (images, audio, video, documents)
+- **Telegram**: Sent as a file attachment
+
+Just ask: "Create a chart of...", "Generate a document for...", "Download this file for me" and the result will appear in your chat.
+
+**CLI tools available:**
+- `send-file <path>` - Explicitly send any file to all connected clients
+- `save-for-download <path>` - Move a file to the media directory for web download
+
+## Managing MyAgentive
+
+```bash
+myagentivectl start        # Start in background
+myagentivectl stop         # Stop the service
+myagentivectl restart      # Restart (needed after config changes)
+myagentivectl status       # Check if running
+myagentivectl logs         # Follow log output
+myagentivectl config       # Edit config file
+```
+
+**Health check:**
+```bash
+curl http://localhost:3847/health
+```
+
+Returns JSON showing status of database, Telegram, sessions, and memory.
+
+## Capability Categories (with Integrations)
 
 ### 1. Communication
+
 | Capability | Skill | Setup Required |
 |------------|-------|----------------|
 | Phone calls with AI voice | `twilio-phone` | Twilio + ElevenLabs |
 | SMS messages | `twilio-phone` | Twilio |
 | Email (read/send) | `email-himalaya` | himalaya CLI |
-| Telegram notifications | Core | Already configured |
+| Telegram mobile access | Core | Telegram bot token + user ID (optional) |
 
 ### 2. Content Creation
+
 | Capability | Skill | Setup Required |
 |------------|-------|----------------|
 | Image generation | `gemini-imagen` | Gemini API key |
 | Audio/video transcription | `deepgram-transcription` | Deepgram API key |
 | Voice synthesis | `twilio-phone` | ElevenLabs API key |
-
-### 3. Social Media
-| Capability | Skill | Setup Required |
-|------------|-------|----------------|
-| LinkedIn posts | `social-media-poster` | LinkedIn API |
-| Twitter/X posts | `social-media-poster` | Twitter API |
-
-### 4. Documents
-| Capability | Skill | Setup Required |
-|------------|-------|----------------|
 | Word documents (.docx) | `docx` | None |
 | Excel spreadsheets (.xlsx) | `xlsx` | None |
 | PowerPoint presentations (.pptx) | `pptx` | None |
 | PDF manipulation | `pdf` | None |
 
-### 5. Device Control
+### 3. Social Media
+
+| Capability | Skill | Setup Required |
+|------------|-------|----------------|
+| LinkedIn posts | `social-media-poster` | LinkedIn API |
+| Twitter/X posts | `social-media-poster` | Twitter API |
+
+### 4. Device Control
+
 | Capability | Skill | Setup Required |
 |------------|-------|----------------|
 | Android phone control | `android-use` | ADB + USB connection |
 
-### 6. Web Hosting (External)
+### 5. Web Hosting (External)
+
 | Capability | Provider | Setup Required |
 |------------|----------|----------------|
 | Static websites | Cloudflare Pages | Cloudflare account |
@@ -74,25 +145,142 @@ To see what is configured, check the config file:
 ```bash
 # List configured API keys (values hidden)
 grep -E "_KEY|_TOKEN|_SECRET|_SID" ~/.myagentive/config | cut -d'=' -f1
-
-# Or use the validation script
-python .claude/skills/myagentive/scripts/check_config.py
 ```
 
 ---
 
-## Integration Setup Guides
+## Telegram Setup (Optional)
 
-### Already Configured (Core)
+Telegram is completely optional. MyAgentive works perfectly with just the web interface. However, Telegram gives you mobile access from anywhere and enables features like voice message transcription, file sharing, and activity monitoring.
 
-These are set up during initial MyAgentive installation:
+### Checking Current Telegram Status
 
-| Integration | Variables | Status |
-|-------------|-----------|--------|
-| Telegram | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_USER_ID` | Required |
-| Web Interface | `WEB_PASSWORD`, `PORT` | Required |
+To check whether Telegram is already configured, run:
+
+```bash
+grep -E "TELEGRAM_BOT_TOKEN|TELEGRAM_USER_ID" ~/.myagentive/config
+```
+
+Or check the health endpoint:
+```bash
+curl -s http://localhost:3847/health | grep -A2 telegram
+```
+
+If `telegram.status` is `"not_configured"`, Telegram is not set up. If both `TELEGRAM_BOT_TOKEN` and `TELEGRAM_USER_ID` have values, Telegram is configured.
+
+### Step 1: Create a Telegram Bot
+
+If `TELEGRAM_BOT_TOKEN` is already in the config with a value containing `:`, the bot is already created. Skip to Step 2.
+
+If not:
+
+1. Open Telegram and search for `@BotFather`
+2. Send `/newbot`
+3. Choose a display name (e.g., "My Personal Agent")
+4. Choose a unique username ending in `bot` (e.g., `my_agent_xyz_bot`)
+5. BotFather sends the bot token, which looks like: `7123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+6. Add to config:
+   ```bash
+   echo "TELEGRAM_BOT_TOKEN=7123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxx" >> ~/.myagentive/config
+   ```
+
+**Optional bot customisation** (via @BotFather):
+- `/setdescription` - Set bot description
+- `/setabouttext` - Set "About" text
+- `/setuserpic` - Set bot profile picture
+
+### Step 2: Get Your Telegram User ID
+
+If `TELEGRAM_USER_ID` is already in the config with a numeric value, skip this step.
+
+If not:
+
+1. Open Telegram and search for `@userinfobot`
+2. Send any message
+3. The bot replies with your info including your numeric **Id** (e.g., `123456789`)
+4. Add to config:
+   ```bash
+   echo "TELEGRAM_USER_ID=123456789" >> ~/.myagentive/config
+   ```
+
+**Important:** Use the numeric ID, not your @username. The ID is what MyAgentive uses to restrict access so only you can control the bot in private chats.
+
+### Step 3: Restart and Test
+
+```bash
+myagentivectl restart
+```
+
+Then in Telegram:
+1. Search for your bot by its username
+2. Tap "Start" or send `/start`
+3. Send a test message
+
+### Step 4 (Optional): Activity Monitoring Group
+
+A monitoring group receives notifications about everything MyAgentive does: sessions created, messages processed, errors, and system events. This is useful for keeping an eye on agent activity.
+
+1. Create a new Telegram group (e.g., "MyAgentive Activity")
+2. Add your bot to the group
+3. Get the group ID:
+   - Add `@getidsbot` to the group temporarily
+   - It shows the group ID (a negative number starting with `-100`, e.g., `-1001234567890`)
+   - Remove @getidsbot from the group afterwards
+4. Add to config:
+   ```bash
+   echo "TELEGRAM_MONITORING_GROUP_ID=-1001234567890" >> ~/.myagentive/config
+   ```
+5. Restart: `myagentivectl restart`
+
+The monitoring group is one-way: MyAgentive posts activity there, but does not respond to messages in the monitoring group.
+
+### Step 5 (Optional): Shared Collaboration Group
+
+You can create a Telegram group where multiple people can interact with MyAgentive by @mentioning the bot. This is useful for teams or families who want to share an agent.
+
+1. Create a Telegram group (e.g., "Team Agent")
+2. Add your bot and the people who should have access
+3. Get the group ID using `@getidsbot` (same process as Step 4)
+4. Add the group to the allowed list:
+   ```bash
+   echo "TELEGRAM_ALLOWED_GROUPS=-1001234567890" >> ~/.myagentive/config
+   ```
+   For multiple groups, comma-separate them: `TELEGRAM_ALLOWED_GROUPS=-100111,-100222`
+5. Restart: `myagentivectl restart`
+
+**How it works in groups:**
+- The bot only responds when @mentioned (e.g., `@my_agent_xyz_bot what is the weather?`)
+- Anyone in the group can @mention the bot; the private chat user ID restriction does not apply in groups
+- The bot ignores messages that do not @mention it
+- Each group conversation uses the same session system as private chat and web
+
+**Group policy options** (in config):
+- `TELEGRAM_GROUP_POLICY=allowlist` (default): Bot only responds in groups listed in `TELEGRAM_ALLOWED_GROUPS`
+- `TELEGRAM_GROUP_POLICY=open`: Bot responds when @mentioned in any group it has been added to
+- `TELEGRAM_GROUP_POLICY=disabled`: Bot never responds in any group
+
+You can also set per-group policies:
+```
+TELEGRAM_GROUP_POLICIES={"‑100111":"open","‑100222":"disabled"}
+```
+
+### Telegram Setup Summary
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `TELEGRAM_BOT_TOKEN` | For Telegram | Bot token from @BotFather |
+| `TELEGRAM_USER_ID` | For Telegram | Your numeric user ID (private chat access) |
+| `TELEGRAM_MONITORING_GROUP_ID` | No | Group for activity notifications |
+| `TELEGRAM_ALLOWED_GROUPS` | No | Groups where bot responds when @mentioned |
+| `TELEGRAM_GROUP_POLICY` | No | Default group policy (allowlist/open/disabled) |
+| `TELEGRAM_GROUP_POLICIES` | No | Per-group policy overrides (JSON) |
+| `TELEGRAM_REACTION_ACK` | No | Show eye reaction on receiving messages (default: true) |
+| `TELEGRAM_FRAGMENT_BUFFER_MS` | No | Buffer time for rapid message coalescence (default: 500ms) |
+| `TELEGRAM_LINK_PREVIEW` | No | Enable link previews in responses (default: true) |
 
 ---
+
+## Other Integration Setup Guides
 
 ### Deepgram (Transcription)
 
@@ -111,6 +299,7 @@ These are set up during initial MyAgentive installation:
    ```bash
    echo "DEEPGRAM_API_KEY=your_key" >> ~/.myagentive/config
    ```
+4. Restart: `myagentivectl restart`
 
 **Skill:** `deepgram-transcription`
 
@@ -130,6 +319,7 @@ These are set up during initial MyAgentive installation:
    ```bash
    echo "GEMINI_API_KEY=your_key" >> ~/.myagentive/config
    ```
+3. Restart: `myagentivectl restart`
 
 **Skill:** `gemini-imagen`
 
@@ -151,6 +341,7 @@ These are set up during initial MyAgentive installation:
    ```bash
    echo "ELEVENLABS_API_KEY=your_key" >> ~/.myagentive/config
    ```
+4. Restart: `myagentivectl restart`
 
 **Skill:** `twilio-phone`
 
@@ -304,6 +495,7 @@ These are set up during initial MyAgentive installation:
    echo "CLOUDFLARE_API_TOKEN=your_token" >> ~/.myagentive/config
    echo "CLOUDFLARE_ACCOUNT_ID=your_account_id" >> ~/.myagentive/config
    ```
+5. Restart: `myagentivectl restart`
 
 ---
 
@@ -345,6 +537,7 @@ These are set up during initial MyAgentive installation:
    echo "GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json" >> ~/.myagentive/config
    echo "GCP_PROJECT_ID=your-project-id" >> ~/.myagentive/config
    ```
+5. Restart: `myagentivectl restart`
 
 ---
 
@@ -372,27 +565,38 @@ These are set up during initial MyAgentive installation:
 
 ---
 
-## Document Skills (No Setup Required)
-
-These skills work out of the box:
-
-| Skill | Description |
-|-------|-------------|
-| `docx` | Create, edit, and read Word documents |
-| `xlsx` | Create, edit, and analyse Excel spreadsheets |
-| `pptx` | Create and edit PowerPoint presentations |
-| `pdf` | Extract text, merge, split, and fill PDF forms |
-
----
-
 ## How to Add an Integration
 
 Simply ask:
+- "Set up Telegram" - Full Telegram onboarding walkthrough
 - "Set up Deepgram integration"
 - "Help me configure Twitter"
 - "I want to add ElevenLabs"
+- "What integrations do I have?"
+- "Set up a monitoring group"
+- "Set up a shared group for my team"
 
 I will guide you through the process step by step.
+
+---
+
+## Key File Locations
+
+| Item | Path |
+|------|------|
+| Configuration | `~/.myagentive/config` |
+| System prompt (product-managed) | `~/.myagentive/system_prompt.md` |
+| User prompt (your customisations) | `~/.myagentive/user_prompt.md` |
+| Database | `~/.myagentive/data/myagentive.db` |
+| Media / file delivery | `~/.myagentive/media/` |
+| Skills | `~/.myagentive/skills/` |
+| Logs (standalone mode) | `~/.myagentive/myagentive.log` |
+
+**Config format rules:**
+- `KEY=value` (no quotes around values)
+- No trailing spaces
+- Each variable on its own line
+- All config changes require restart: `myagentivectl restart`
 
 ---
 
@@ -403,6 +607,41 @@ I will guide you through the process step by step.
 - Never share your API keys publicly
 - You can revoke any API key from the provider's dashboard
 - Keys are never displayed in full in responses
+- Web tokens expire after 7 days
+- The `API_KEY` in config never expires (for programmatic/CLI access)
+
+---
+
+## Quick Troubleshooting
+
+**MyAgentive not running:**
+```bash
+myagentivectl status
+myagentivectl start
+```
+
+**Health check:**
+```bash
+curl http://localhost:3847/health
+```
+
+**Telegram not working:**
+- Check health endpoint: `telegram.status` should be `"ok"`, not `"not_configured"`
+- Verify bot token has a colon (`:`) in it
+- Verify user ID is numeric (get from @userinfobot)
+- Make sure you sent `/start` to the bot in Telegram
+- If Telegram was added after initial setup, restart is required: `myagentivectl restart`
+
+**Web interface not loading:**
+- Check server is running: `curl http://localhost:3847/health`
+- Verify port: `grep PORT ~/.myagentive/config` (default: 3847)
+
+**Config changes not taking effect:**
+```bash
+myagentivectl restart
+```
+
+For detailed troubleshooting, I can use the `myagentive` skill which has a full troubleshooting reference.
 
 ---
 
@@ -412,4 +651,9 @@ Ask me:
 - "What can you do?" - Overview of capabilities
 - "What integrations are available?" - List all integrations
 - "Check my integration status" - See what is configured
+- "Help me set up Telegram" - Full Telegram onboarding
+- "Help me set up a monitoring group" - Activity notifications
+- "Help me set up a shared group" - Team collaboration via Telegram
 - "Help me set up [integration name]" - Step-by-step setup guide
+- "How do sessions work?" - Session management explanation
+- "How do I send files?" - File delivery explanation
