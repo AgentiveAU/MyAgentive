@@ -113,7 +113,12 @@ export const messageRepo = {
     const message = this.getById(messageId);
     if (!message) return;
 
-    const existingMetadata = message.metadata ? JSON.parse(message.metadata) : {};
+    let existingMetadata: Record<string, any> = {};
+    try {
+      existingMetadata = message.metadata ? JSON.parse(message.metadata) : {};
+    } catch {
+      // Corrupted metadata, start fresh
+    }
     const mergedMetadata = { ...existingMetadata, ...newMetadata };
 
     db.prepare("UPDATE messages SET metadata = ? WHERE id = ?").run(
