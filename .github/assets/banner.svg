@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200">
+  <rect width="800" height="200" rx="12" fill="#0A0A0A"/>
+  <text x="400" y="135" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="96" font-weight="900" text-anchor="middle">
+    <tspan fill="#39FF14">My</tspan><tspan fill="#0066FF">Agentive</tspan>
+  </text>
+</svg>

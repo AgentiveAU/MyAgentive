@@ -1,10 +1,69 @@
-# MyAgentive
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/banner-light.svg">
+    <img src=".github/assets/banner.svg" alt="MyAgentive" width="500">
+  </picture>
+</p>
 
-Open-source personal AI agent for power users. Runs on your laptop with Telegram and web interfaces, powered by Claude.
+<p align="center">
+  <strong>Open-source personal AI agent for power users.</strong><br>
+  Runs on your laptop with Telegram and web interfaces, powered by Claude Code.
+</p>
+
+<p align="center">
+  <a href="https://github.com/AgentiveAU/MyAgentive/releases/latest"><img src="https://img.shields.io/github/v/release/AgentiveAU/MyAgentive?style=for-the-badge&color=39FF14&label=Release" alt="Release"></a>
+  <a href="https://github.com/AgentiveAU/MyAgentive/blob/main/LICENSE"><img src="https://img.shields.io/badge/Licence-ELv2-blue?style=for-the-badge" alt="Licence"></a>
+  <a href="https://github.com/AgentiveAU/MyAgentive/stargazers"><img src="https://img.shields.io/github/stars/AgentiveAU/MyAgentive?style=for-the-badge&color=yellow" alt="Stars"></a>
+  <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-lightgrey?style=for-the-badge" alt="Platform">
+</p>
+
+<p align="center">
+  <a href="https://MyAgentive.ai">Website</a> &bull;
+  <a href="https://deepwiki.com/AgentiveAU/MyAgentive">DeepWiki</a> &bull;
+  <a href="#quick-install">Getting Started</a> &bull;
+  <a href="https://github.com/AgentiveAU/MyAgentive/releases">Releases</a> &bull;
+  <a href="https://TheAgentiveGroup.com">Agentive</a>
+</p>
+
+---
 
 **Platforms:** macOS and Linux. Windows users can install via WSL (Windows Subsystem for Linux).
 
-**Website:** [MyAgentive.ai](https://MyAgentive.ai) | **Parent Company:** [Agentive](https://TheAgentiveGroup.com)
+## Highlights
+
+- **Multi-interface**: Telegram bot and web UI with synced sessions across both
+- **Claude-powered**: Use your Claude Pro/Team subscription or Anthropic API key
+- **Rich media**: Send and receive voice messages, files, photos, and videos
+- **Real-time streaming**: WebSocket-based live responses in the web interface
+- **Skills system**: Social media posting, AI voice calls, SMS, transcription, image generation, email, and more
+- **Privacy-first**: Local SQLite database, no third-party tracking, your data stays on your machine
+- **One-line install**: Single curl command with an interactive setup wizard
+- **Background daemon**: Run as a service with `myagentivectl start` and manage with simple commands
+- **Session management**: Named sessions that persist across restarts and sync between interfaces
+
+## How It Works
+
+```
+┌──────────────┐     ┌──────────────┐
+│   Telegram   │     │    Web UI    │
+└──────┬───────┘     └──────┬───────┘
+       │                    │
+       └────────┬───────────┘
+                │
+       ┌────────▼────────┐
+       │ Session Manager  │
+       └────────┬────────┘
+                │
+     ┌──────────┼──────────┐
+     │                     │
+┌────▼─────┐       ┌──────▼───────┐
+│ AI Client│       │   SQLite DB  │
+│(Claude   │       │  (sessions,  │
+│  Code)   │       │   messages)  │
+└──────────┘       └──────────────┘
+```
+
+The **Session Manager** orchestrates everything. Telegram and web clients connect to shared sessions, the **AI Client** wraps Claude Code for AI conversations, and **SQLite** persists all data locally.
 
 ## Quick Install
 
@@ -34,7 +93,7 @@ When you run `myagentive` for the first time, an interactive wizard guides you t
 
 ```bash
 # Install Claude Code first
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 
 # Login to your Claude account
 claude login
@@ -95,15 +154,6 @@ myagentivectl logs
 # Check status
 myagentivectl status
 ```
-
-## Updating
-
-```bash
-# Re-run the install script to update
-curl -fsSL https://myagentive.ai/install | bash
-```
-
-Your config and data are preserved in `~/.myagentive/`.
 
 ## Telegram Commands
 
@@ -169,62 +219,17 @@ Get real-time notifications of agent activity in a Telegram group:
 
 **Important:** The group ID must be numeric (typically starts with `-100` for supergroups). Do not use the group name.
 
-## Troubleshooting
-
-### "Claude Code not found"
+## Updating
 
 ```bash
-npm install -g @anthropic-ai/claude-code
-claude login
+# Re-run the install script to update
+curl -fsSL https://myagentive.ai/install | bash
 ```
 
-### "Bot token invalid"
+Your config and data are preserved in `~/.myagentive/`.
 
-- Check for extra spaces when pasting
-- Get a new token from @BotFather if needed
-
-### "Telegram user not authorised"
-
-The bot only responds to your Telegram account. If you need to change the authorised user:
-
-```bash
-myagentive config --reset-telegram
-```
-
-### Reset Everything
-
-```bash
-rm -rf ~/.myagentive
-myagentive  # Re-run setup wizard
-```
-
-## Development
-
-For contributors and local development:
-
-```bash
-# Clone the repo
-git clone https://github.com/AgentiveAU/MyAgentive.git
-cd myagentive
-
-# Install dependencies
-bun install
-
-# Run in development mode
-bun run dev
-```
-
-### Building Binaries
-
-```bash
-# macOS
-bun run build:binary
-
-# Linux
-bun run build:binary:linux
-```
-
-## Power User Configuration
+<details>
+<summary><h2>Power User Configuration</h2></summary>
 
 MyAgentive supports extended capabilities through Claude Code skills. Configure these APIs and accounts in your `.env` file to unlock additional features.
 
@@ -244,7 +249,8 @@ MyAgentive supports extended capabilities through Claude Code skills. Configure 
 
 ---
 
-### Social Media Posting (LinkedIn + Twitter/X)
+<details>
+<summary><strong>Social Media Posting (LinkedIn + Twitter/X)</strong></summary>
 
 Post content to LinkedIn and Twitter/X with text, images, and videos.
 
@@ -297,9 +303,12 @@ TWITTER_ACCESS_TOKEN_SECRET=your-access-token-secret
 TWITTER_BEARER_TOKEN=your-bearer-token
 ```
 
+</details>
+
 ---
 
-### AI Voice Calls and SMS (Twilio + ElevenLabs)
+<details>
+<summary><strong>AI Voice Calls and SMS (Twilio + ElevenLabs)</strong></summary>
 
 Make phone calls with natural AI-generated voices and send SMS.
 
@@ -330,9 +339,12 @@ ELEVENLABS_API_KEY=sk_xxxxx
 
 **Note:** Twilio uses CLI authentication (profile-based), not environment variables.
 
+</details>
+
 ---
 
-### Audio/Video Transcription (Deepgram)
+<details>
+<summary><strong>Audio/Video Transcription (Deepgram)</strong></summary>
 
 Transcribe audio files (mp3, wav, m4a) and video files (mp4, mov) to text.
 
@@ -350,9 +362,12 @@ DEEPGRAM_API_KEY=your-deepgram-api-key
 
 **Tip:** For video files, the skill extracts audio first to reduce upload time (~98% smaller).
 
+</details>
+
 ---
 
-### Image Generation (Google Gemini Imagen)
+<details>
+<summary><strong>Image Generation (Google Gemini Imagen)</strong></summary>
 
 Generate images from text prompts using Google's Imagen models.
 
@@ -370,13 +385,16 @@ GEMINI_API_KEY=your-gemini-api-key
 ```
 
 **Models available:**
-- `imagen-4.0-fast-generate-001` - Fast generation (default)
-- `imagen-4.0-generate-001` - Balanced quality
-- `imagen-4.0-ultra-generate-001` - Highest quality
+- `imagen-4.0-fast-generate-001` : Fast generation (default)
+- `imagen-4.0-generate-001` : Balanced quality
+- `imagen-4.0-ultra-generate-001` : Highest quality
+
+</details>
 
 ---
 
-### Android Device Control (ADB + OpenAI)
+<details>
+<summary><strong>Android Device Control (ADB + OpenAI)</strong></summary>
 
 Control your Android phone remotely: tap buttons, type text, navigate apps.
 
@@ -412,9 +430,12 @@ OPENAI_API_KEY=sk-xxxxx
 
 **Note:** The skill primarily uses text-based UI automation (99%+ accuracy, ~$0.01/action) instead of screenshot analysis (~$0.15/action).
 
+</details>
+
 ---
 
-### Email Management (himalaya)
+<details>
+<summary><strong>Email Management (himalaya)</strong></summary>
 
 Read, send, and manage emails from the command line.
 
@@ -455,9 +476,12 @@ Read, send, and manage emails from the command line.
      security add-generic-password -s himalaya-gmail -a "you@example.com" -w "your-app-password"
      ```
 
+</details>
+
 ---
 
-### System Configuration Tips
+<details>
+<summary><strong>System Configuration Tips</strong></summary>
 
 #### Passwordless sudo (Optional)
 
@@ -474,9 +498,12 @@ yourusername ALL=(ALL) NOPASSWD: ALL
 
 **Warning:** Only do this on personal machines you fully control.
 
+</details>
+
 ---
 
-### Complete .env Example
+<details>
+<summary><strong>Complete .env Example</strong></summary>
 
 ```bash
 # =============================================================================
@@ -527,7 +554,64 @@ TWITTER_ACCESS_TOKEN_SECRET=
 TWITTER_BEARER_TOKEN=
 ```
 
----
+</details>
+
+</details>
+
+## Troubleshooting
+
+### "Claude Code not found"
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+claude login
+```
+
+### "Bot token invalid"
+
+- Check for extra spaces when pasting
+- Get a new token from @BotFather if needed
+
+### "Telegram user not authorised"
+
+The bot only responds to your Telegram account. If you need to change the authorised user:
+
+```bash
+myagentive config --reset-telegram
+```
+
+### Reset Everything
+
+```bash
+rm -rf ~/.myagentive
+myagentive  # Re-run setup wizard
+```
+
+## Development
+
+For contributors and local development:
+
+```bash
+# Clone the repo
+git clone https://github.com/AgentiveAU/MyAgentive.git
+cd myagentive
+
+# Install dependencies
+bun install
+
+# Run in development mode
+bun run dev
+```
+
+### Building Binaries
+
+```bash
+# macOS
+bun run build:binary
+
+# Linux
+bun run build:binary:linux
+```
 
 ## Security Notes
 
@@ -536,6 +620,6 @@ TWITTER_BEARER_TOKEN=
 - API key and tokens stored locally in `~/.myagentive/config`
 - No data sent to third parties (except Claude API)
 
-## License
+## Licence
 
-Elastic License 2.0 (ELv2). Created by [Agentive](https://TheAgentiveGroup.com).
+Elastic Licence 2.0 (ELv2). Created by [Agentive](https://TheAgentiveGroup.com).
