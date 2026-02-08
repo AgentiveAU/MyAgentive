@@ -1,10 +1,13 @@
+const path = require('path');
+const appDir = __dirname;
+
 module.exports = {
   apps: [
     {
       name: 'myagentive',
       script: 'npm',
       args: 'start',
-      cwd: '/home/ubuntu/app',
+      cwd: appDir,
       instances: 1,
       exec_mode: 'fork',
 
@@ -15,8 +18,8 @@ module.exports = {
 
       // Logging
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      error_file: '/home/ubuntu/app/logs/error.log',
-      out_file: '/home/ubuntu/app/logs/out.log',
+      error_file: path.join(appDir, 'logs', 'error.log'),
+      out_file: path.join(appDir, 'logs', 'out.log'),
       merge_logs: true,
 
       // Process management
