@@ -27,6 +27,11 @@ has_systemd_service() {
     [ -f "/etc/systemd/system/${SYSTEMD_SERVICE}.service" ]
 }
 
+# Check if we are being called by systemd (avoids recursive systemctl calls)
+is_systemd_context() {
+    [ -n "$INVOCATION_ID" ]
+}
+
 get_pid() {
     if [ -f "$PID_FILE" ]; then
         cat "$PID_FILE"
@@ -34,7 +39,8 @@ get_pid() {
 }
 
 is_running() {
-    if has_systemd_service; then
+    # When called by systemd, check the PID file directly
+    if has_systemd_service && ! is_systemd_context; then
         systemctl is-active --quiet "$SYSTEMD_SERVICE" 2>/dev/null
         return $?
     fi
@@ -47,7 +53,7 @@ is_running() {
 
 start() {
     if is_running; then
-        if has_systemd_service; then
+        if has_systemd_service && ! is_systemd_context; then
             echo "MyAgentive is already running (managed by systemd)"
         else
             echo "MyAgentive is already running (PID: $(get_pid))"
@@ -56,7 +62,8 @@ start() {
     fi
 
     echo "Starting MyAgentive..."
-    if has_systemd_service; then
+    if has_systemd_service && ! is_systemd_context; then
+        # User called from terminal; delegate to systemd
         sudo systemctl start "$SYSTEMD_SERVICE"
         sleep 1
         if is_running; then
@@ -67,6 +74,7 @@ start() {
             exit 1
         fi
     else
+        # Called by systemd (ExecStart) or standalone mode; start directly
         cd "$INSTALL_DIR"
         nohup "$BIN" >> "$LOG_FILE" 2>&1 &
         echo $! > "$PID_FILE"
@@ -89,11 +97,13 @@ stop() {
         exit 0
     fi
 
-    if has_systemd_service; then
+    if has_systemd_service && ! is_systemd_context; then
+        # User called from terminal; delegate to systemd
         echo "Stopping MyAgentive (systemd)..."
         sudo systemctl stop "$SYSTEMD_SERVICE"
         echo "MyAgentive stopped"
     else
+        # Called by systemd (ExecStop) or standalone mode; stop directly
         local pid=$(get_pid)
         echo "Stopping MyAgentive (PID: $pid)..."
         kill "$pid"
@@ -117,7 +127,7 @@ stop() {
 }
 
 status() {
-    if has_systemd_service; then
+    if has_systemd_service && ! is_systemd_context; then
         systemctl status "$SYSTEMD_SERVICE" --no-pager
     elif is_running; then
         echo "MyAgentive is running (PID: $(get_pid))"
@@ -128,7 +138,7 @@ status() {
 }
 
 logs() {
-    if has_systemd_service; then
+    if has_systemd_service && ! is_systemd_context; then
         sudo journalctl -u "$SYSTEMD_SERVICE" -f
     else
         if [ ! -f "$LOG_FILE" ]; then
@@ -140,7 +150,8 @@ logs() {
 }
 
 restart() {
-    if has_systemd_service; then
+    if has_systemd_service && ! is_systemd_context; then
+        # User called from terminal; delegate to systemd
         echo "Restarting MyAgentive (systemd)..."
         sudo systemctl restart "$SYSTEMD_SERVICE"
         sleep 1
@@ -152,6 +163,7 @@ restart() {
             exit 1
         fi
     else
+        # Called by systemd or standalone mode
         stop
         start
     fi

@@ -75,7 +75,7 @@ export async function telegramAuthMiddleware(
   }
 
   // Private chat - check if user is authorised
-  if (!userId || userId !== config.telegramUserId) {
+  if (!userId || !config.telegramUserIds.includes(userId)) {
     console.log(`Unauthorized Telegram user attempted access: ${userId}`);
     try {
       await ctx.reply("Unauthorised. This bot is for private use only.");
@@ -91,5 +91,5 @@ export async function telegramAuthMiddleware(
 
 // Check if a user ID is authorised (for use outside middleware)
 export function isAuthorisedTelegramUser(userId: number): boolean {
-  return userId === config.telegramUserId;
+  return config.telegramUserIds.includes(userId);
 }

@@ -77,13 +77,16 @@ export const config = {
 
   // Telegram (optional - web-only mode if not configured)
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
-  telegramUserId: process.env.TELEGRAM_USER_ID
-    ? parseInt(process.env.TELEGRAM_USER_ID)
-    : 0,
+  // Supports comma-separated user IDs: "507299420" or "507299420,123456789"
+  telegramUserIds: (process.env.TELEGRAM_USER_ID || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id !== "" && !isNaN(parseInt(id)))
+    .map((id) => parseInt(id)),
 
   // Helper to check if Telegram is properly configured
   get telegramEnabled(): boolean {
-    return !!this.telegramBotToken && this.telegramUserId > 0;
+    return !!this.telegramBotToken && this.telegramUserIds.length > 0;
   },
   telegramMonitoringGroupId: process.env.TELEGRAM_MONITORING_GROUP_ID
     ? parseInt(process.env.TELEGRAM_MONITORING_GROUP_ID)
