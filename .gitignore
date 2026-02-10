@@ -85,3 +85,6 @@ coverage/
 *.pfx
 *.crt
 *.cert
+
+# Private deployment scripts (contain infrastructure details)
+scripts/deploy-*.sh
