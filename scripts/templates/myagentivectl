@@ -1,0 +1,248 @@
+#!/bin/bash
+# MyAgentive Control Script
+# Manages the MyAgentive service
+# Supports both systemd-managed and standalone (nohup) modes
+
+INSTALL_DIR="$HOME/.myagentive"
+PID_FILE="$INSTALL_DIR/myagentive.pid"
+LOG_FILE="$INSTALL_DIR/myagentive.log"
+BIN="$INSTALL_DIR/bin/myagentive"
+SYSTEMD_SERVICE="myagentive"
+
+usage() {
+    echo "Usage: myagentivectl <command>"
+    echo ""
+    echo "Commands:"
+    echo "  start        Start MyAgentive in the background"
+    echo "  stop         Stop the running MyAgentive service"
+    echo "  restart      Restart MyAgentive"
+    echo "  status       Check if MyAgentive is running"
+    echo "  logs         Show recent logs (follow mode)"
+    echo "  config       Edit configuration file"
+    echo "  set-agent-id Set or change the Agent ID shown in Web UI"
+}
+
+# Check if a systemd service unit exists for MyAgentive
+has_systemd_service() {
+    [ -f "/etc/systemd/system/${SYSTEMD_SERVICE}.service" ]
+}
+
+get_pid() {
+    if [ -f "$PID_FILE" ]; then
+        cat "$PID_FILE"
+    fi
+}
+
+is_running() {
+    if has_systemd_service; then
+        systemctl is-active --quiet "$SYSTEMD_SERVICE" 2>/dev/null
+        return $?
+    fi
+    local pid=$(get_pid)
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+start() {
+    if is_running; then
+        if has_systemd_service; then
+            echo "MyAgentive is already running (managed by systemd)"
+        else
+            echo "MyAgentive is already running (PID: $(get_pid))"
+        fi
+        exit 1
+    fi
+
+    echo "Starting MyAgentive..."
+    if has_systemd_service; then
+        sudo systemctl start "$SYSTEMD_SERVICE"
+        sleep 1
+        if is_running; then
+            echo "MyAgentive started (systemd)"
+        else
+            echo "Failed to start MyAgentive. Check logs:"
+            sudo journalctl -u "$SYSTEMD_SERVICE" -n 20 --no-pager
+            exit 1
+        fi
+    else
+        cd "$INSTALL_DIR"
+        nohup "$BIN" >> "$LOG_FILE" 2>&1 &
+        echo $! > "$PID_FILE"
+        sleep 1
+        if is_running; then
+            echo "MyAgentive started (PID: $(get_pid))"
+            echo "Logs: $LOG_FILE"
+        else
+            echo "Failed to start MyAgentive. Check logs:"
+            tail -20 "$LOG_FILE"
+            exit 1
+        fi
+    fi
+}
+
+stop() {
+    if ! is_running; then
+        echo "MyAgentive is not running"
+        rm -f "$PID_FILE"
+        exit 0
+    fi
+
+    if has_systemd_service; then
+        echo "Stopping MyAgentive (systemd)..."
+        sudo systemctl stop "$SYSTEMD_SERVICE"
+        echo "MyAgentive stopped"
+    else
+        local pid=$(get_pid)
+        echo "Stopping MyAgentive (PID: $pid)..."
+        kill "$pid"
+
+        # Wait for graceful shutdown
+        for i in {1..10}; do
+            if ! is_running; then
+                echo "MyAgentive stopped"
+                rm -f "$PID_FILE"
+                exit 0
+            fi
+            sleep 1
+        done
+
+        # Force kill if still running
+        echo "Force killing..."
+        kill -9 "$pid" 2>/dev/null
+        rm -f "$PID_FILE"
+        echo "MyAgentive stopped"
+    fi
+}
+
+status() {
+    if has_systemd_service; then
+        systemctl status "$SYSTEMD_SERVICE" --no-pager
+    elif is_running; then
+        echo "MyAgentive is running (PID: $(get_pid))"
+    else
+        echo "MyAgentive is not running"
+        rm -f "$PID_FILE" 2>/dev/null
+    fi
+}
+
+logs() {
+    if has_systemd_service; then
+        sudo journalctl -u "$SYSTEMD_SERVICE" -f
+    else
+        if [ ! -f "$LOG_FILE" ]; then
+            echo "No log file found at $LOG_FILE"
+            exit 1
+        fi
+        tail -f "$LOG_FILE"
+    fi
+}
+
+restart() {
+    if has_systemd_service; then
+        echo "Restarting MyAgentive (systemd)..."
+        sudo systemctl restart "$SYSTEMD_SERVICE"
+        sleep 1
+        if is_running; then
+            echo "MyAgentive restarted"
+        else
+            echo "Failed to restart MyAgentive. Check logs:"
+            sudo journalctl -u "$SYSTEMD_SERVICE" -n 20 --no-pager
+            exit 1
+        fi
+    else
+        stop
+        start
+    fi
+}
+
+config() {
+    local CONFIG_FILE="$INSTALL_DIR/config"
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Config file not found. Run 'myagentive' first to create it."
+        exit 1
+    fi
+    ${EDITOR:-nano} "$CONFIG_FILE"
+}
+
+set_agent_id() {
+    local CONFIG_FILE="$INSTALL_DIR/config"
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Config file not found. Run 'myagentive' first to create it."
+        exit 1
+    fi
+
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Set Agent ID"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "The Agent ID is shown in the Web UI header and login page."
+    echo "Examples: AG001, LAPTOP, WORK, DEV"
+    echo ""
+
+    # Check current value
+    local current_id=$(grep "^AGENT_ID=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2)
+    if [ -n "$current_id" ]; then
+        echo "Current Agent ID: $current_id"
+    else
+        echo "Current Agent ID: (not set)"
+    fi
+    echo ""
+
+    read -p "Enter new Agent ID (or leave empty to remove): " new_id
+
+    # Remove any existing AGENT_ID line
+    sed -i.bak '/^AGENT_ID=/d' "$CONFIG_FILE"
+    sed -i.bak '/^# AGENT_ID=/d' "$CONFIG_FILE"
+
+    # Add new value or comment if empty
+    if [ -n "$new_id" ]; then
+        # Add after NODE_ENV line
+        sed -i.bak "/^NODE_ENV=/a\\
+AGENT_ID=$new_id" "$CONFIG_FILE"
+        echo ""
+        echo "✓ Agent ID set to: $new_id"
+    else
+        # Add commented line
+        sed -i.bak "/^NODE_ENV=/a\\
+# AGENT_ID=  # Uncomment and set to show an identifier in the Web UI" "$CONFIG_FILE"
+        echo ""
+        echo "✓ Agent ID removed"
+    fi
+
+    rm -f "$CONFIG_FILE.bak"
+    echo ""
+    echo "Restart MyAgentive to apply changes:"
+    echo "  myagentivectl restart"
+    echo ""
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    status)
+        status
+        ;;
+    logs)
+        logs
+        ;;
+    config)
+        config
+        ;;
+    set-agent-id)
+        set_agent_id
+        ;;
+    *)
+        usage
+        exit 1
+        ;;
+esac
